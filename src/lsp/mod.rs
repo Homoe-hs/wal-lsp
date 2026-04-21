@@ -1,0 +1,103 @@
+mod handlers;
+
+use crate::workspace::{create_workspace, SharedWorkspace};
+use anyhow::Result;
+use lsp_server::{Connection, Message, Notification, Request};
+use serde_json::to_value;
+use tracing::{error, info};
+
+pub static WORKSPACE: std::sync::LazyLock<SharedWorkspace> =
+    std::sync::LazyLock::new(create_workspace);
+
+pub fn run() -> Result<()> {
+    let (connection, _io_threads) = Connection::stdio();
+
+    info!("WAL LSP server starting...");
+
+    let (id, init_params) = connection
+        .initialize_start()
+        .map_err(|e| anyhow::anyhow!("Failed to initialize: {}", e))?;
+
+    info!("Init params: {:?}", init_params);
+
+    let server_capabilities = to_value(lsp_types::ServerCapabilities {
+        text_document_sync: Some(lsp_types::TextDocumentSyncCapability::Kind(
+            lsp_types::TextDocumentSyncKind::INCREMENTAL,
+        )),
+        completion_provider: Some(lsp_types::CompletionOptions {
+            resolve_provider: Some(true),
+            trigger_characters: Some(vec![
+                "(".to_string(),
+                " ".to_string(),
+                "~".to_string(),
+                "#".to_string(),
+            ]),
+            ..Default::default()
+        }),
+        hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
+        definition_provider: Some(lsp_types::OneOf::Left(true)),
+        document_symbol_provider: Some(lsp_types::OneOf::Left(true)),
+        ..Default::default()
+    })
+    .map_err(|e| anyhow::anyhow!("Failed to serialize capabilities: {}", e))?;
+
+    connection
+        .initialize_finish(id, server_capabilities)
+        .map_err(|e| anyhow::anyhow!("Failed to finish initialization: {}", e))?;
+
+    info!("LSP server initialized");
+
+    loop {
+        let msg = connection.receiver.recv()?;
+        match msg {
+            Message::Request(req) => {
+                info!("Received request: {:?}", req.method);
+                if let Err(e) = handle_request(&connection, req) {
+                    error!("Error handling request: {}", e);
+                }
+            }
+            Message::Notification(notif) => {
+                info!("Received notification: {:?}", notif.method);
+                if notif.method == "exit" {
+                    break;
+                }
+                if let Err(e) = handle_notification(&connection, notif) {
+                    error!("Error handling notification: {}", e);
+                }
+            }
+            Message::Response(_) => {
+                // responses are typically used for async requests
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn handle_request(connection: &Connection, req: Request) -> Result<()> {
+    match req.method.as_str() {
+        "textDocument/completion" => handlers::completion::handle(connection, req),
+        "textDocument/hover" => handlers::hover::handle(connection, req),
+        "textDocument/definition" => handlers::goto::handle(connection, req),
+        "textDocument/documentSymbol" => handlers::symbols::handle(connection, req),
+        _ => {
+            info!("Unhandled request: {}", req.method);
+            Ok(())
+        }
+    }
+}
+
+fn handle_notification(connection: &Connection, notif: Notification) -> Result<()> {
+    match notif.method.as_str() {
+        "textDocument/didOpen" => handlers::diagnostics::handle_did_open(connection, notif),
+        "textDocument/didChange" => handlers::diagnostics::handle_did_change(connection, notif),
+        "shutdown" => {
+            info!("Received shutdown request");
+            Ok(())
+        }
+        _ => {
+            info!("Unhandled notification: {}", notif.method);
+            Ok(())
+        }
+    }
+}

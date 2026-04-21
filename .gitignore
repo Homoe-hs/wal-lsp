@@ -1,0 +1,20 @@
+# Build output
+/target/
+
+# Rust
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+
+# Memory/search index
+.memsearch/
+
+# Reference project (not part of this repo)
+tcl-lsp/

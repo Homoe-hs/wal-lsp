@@ -1,3 +1,4 @@
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -9,7 +10,7 @@ pub struct FunctionDoc {
     pub example: Option<String>,
 }
 
-pub fn get_function_docs() -> HashMap<String, FunctionDoc> {
+static FUNCTION_DOCS: Lazy<HashMap<String, FunctionDoc>> = Lazy::new(|| {
     let mut docs = HashMap::new();
 
     docs.insert(
@@ -117,8 +118,12 @@ pub fn get_function_docs() -> HashMap<String, FunctionDoc> {
     );
 
     docs
+});
+
+pub fn get_function_docs() -> &'static HashMap<String, FunctionDoc> {
+    &FUNCTION_DOCS
 }
 
 pub fn get_doc(name: &str) -> Option<FunctionDoc> {
-    get_function_docs().get(name).cloned()
+    FUNCTION_DOCS.get(name).cloned()
 }

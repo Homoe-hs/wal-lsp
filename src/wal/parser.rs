@@ -23,9 +23,12 @@ impl WalParser {
 
     pub fn parse_with_errors(&mut self, source: &str) -> Tree {
         self.parser.parse(source, None).unwrap_or_else(|| {
+            // Fallback: try a fresh parser; if that fails, return empty parse
             let mut parser = Parser::new();
-            parser.set_language(&crate::wal::language()).unwrap();
-            parser.parse(source, None).unwrap()
+            let _ = parser.set_language(&crate::wal::language());
+            parser.parse(source, None)
+                .unwrap_or_else(|| parser.parse("", None)
+                    .expect("tree-sitter must be able to parse empty source"))
         })
     }
 }

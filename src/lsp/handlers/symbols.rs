@@ -14,7 +14,7 @@ pub fn handle(connection: &Connection, req: Request) -> Result<()> {
     );
 
     let document_text = {
-        let ws = WORKSPACE.read().unwrap();
+        let ws = WORKSPACE.read().unwrap_or_else(|e| e.into_inner());
         ws.get_document(&params.text_document.uri).map(|d| d.text.clone())
     };
 

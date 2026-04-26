@@ -1,33 +1,44 @@
 mod lsp;
-mod mcp;
 mod wal;
 pub mod workspace;
 
-use anyhow::Result;
 use clap::Parser;
+use anyhow::Result;
 use tracing::info;
 
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-struct Args {
-    #[arg(long, help = "Run as MCP server instead of LSP")]
-    mcp: bool,
-    #[arg(long, help = "Run as LSP server")]
+#[derive(Parser)]
+#[command(name = "wal-lsp")]
+#[command(version = "0.1.0")]
+#[command(
+    about = "WAL Language Server Protocol implementation",
+    long_about = "LSP server for WAL (Waveform Analysis Language).\n\n\
+                  Provides intelligent editing features for .wal files:\n  \
+                  - Code completion (builtins, signals, scopes, macros)\n  \
+                  - Hover documentation for operators and functions\n  \
+                  - Go-to-definition for variables and functions\n  \
+                  - Document symbols and diagnostics\n  \
+                  - Waveform signal name completion",
+    after_help = "The server communicates via stdio using the Language Server Protocol.\n\
+                  Configure your editor to use 'wal-lsp' for .wal files.\n\n\
+                  EDITOR SETUP:\n  \
+                  VS Code: install the WAL extension and set wal-lsp.path\n  \
+                  Neovim: add to lspconfig with cmd = {'wal-lsp'}\n  \
+                  Helix: add to languages.toml with command = 'wal-lsp'"
+)]
+struct Cli {
+    /// No-op flag for LSP mode (only mode supported)
+    #[arg(long, default_value_t = false, help = "Start in LSP mode (default)")]
+    #[allow(dead_code)]
     lsp: bool,
 }
 
 fn main() -> Result<()> {
+    let _cli = Cli::parse();
+
     tracing_subscriber::fmt::init();
 
-    let args = Args::parse();
-
-    if args.mcp {
-        info!("Starting WAL MCP server");
-        mcp::run()?;
-    } else {
-        info!("Starting WAL LSP server");
-        lsp::run()?;
-    }
+    info!("Starting WAL LSP server");
+    lsp::run()?;
 
     Ok(())
 }

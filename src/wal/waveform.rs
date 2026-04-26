@@ -66,6 +66,18 @@ pub fn parse_vcd_header(path: &Path) -> Result<WaveformInfo, String> {
 }
 
 #[allow(dead_code)]
+pub fn parse_fst_header(path: &Path) -> Result<WaveformInfo, String> {
+    let reader = crate::wal::fst_reader::FstReader::from_path(path)
+        .map_err(|e| format!("Failed to read FST file: {}", e))?;
+
+    Ok(WaveformInfo {
+        signals: reader.file.signal_names(),
+        scopes: vec![],
+        timescale: Some(format!("1e{}", reader.file.header.timescale_exp)),
+    })
+}
+
+#[allow(dead_code)]
 pub fn parse_csv_header(path: &Path) -> Result<WaveformInfo, String> {
     let file = File::open(path).map_err(|e| format!("Failed to open file: {}", e))?;
     let mut reader = BufReader::new(file);
@@ -96,6 +108,7 @@ pub fn parse_waveform_header(path: &Path) -> Result<WaveformInfo, String> {
     match extension.to_lowercase().as_str() {
         "vcd" => parse_vcd_header(path),
         "csv" => parse_csv_header(path),
+        "fst" => parse_fst_header(path),
         _ => Err(format!("Unsupported waveform format: {}", extension)),
     }
 }

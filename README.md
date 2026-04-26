@@ -1,88 +1,107 @@
-# WAL LSP + MCP Server
+# WAL LSP Server
 
-A Language Server Protocol (LSP) and Model Context Protocol (MCP) implementation for [WAL (Waveform Analysis Language)](https://github.com/hesheng/WAL).
+Language Server Protocol implementation for [WAL (Waveform Analysis Language)](https://wal-lang.org).
+
+---
 
 ## Features
 
-### LSP Features
-- **Syntax highlighting** - via semantic tokens
-- **Parse error diagnostics** - reports syntax errors in real-time
-- **Completion** - built-in functions, keywords, operators, and **VCD signals**
-- **Hover** - documentation for all built-in functions
-- **Go to definition** - cross-file symbol navigation
-- **Document symbols** - hierarchical symbol tree
+### LSP Capabilities
 
-### MCP Tools
-| Tool | Description |
-|------|-------------|
-| `wal_parse` | Parse WAL code and return AST |
-| `wal_analyze` | Analyze WAL code for diagnostics and symbols |
-| `wal_execute` | Execute WAL code via `wal` command |
-| `wal_complete` | Get completion suggestions |
-| `wal_symbols` | Get document symbols |
-| `wal_format` | Format WAL code with proper indentation |
+| 功能 | 说明 |
+|------|------|
+| **Diagnostics** | 实时语法错误 + 语义错误检测 |
+| **Completion** | 125+ 内建函数/运算符/宏/特殊变量补全 |
+| **Hover** | 悬停显示函数文档和签名 |
+| **Go-to-Definition** | 跨文件符号跳转 |
+| **Document Symbols** | 层级符号树（define / defun / defmacro） |
+| **信号名补全** | 从 VCD 文件自动加载信号列表 |
+| **增量同步** | `textDocument/didChange` 增量更新 |
 
-### VCD Signal Completion
-The LSP provides intelligent completion for VCD signals:
-- **Auto-detection**: Parses `(load "file.vcd")` calls to load signal lists
-- **Virtual signals**: Recognizes `(defsig name ...)` definitions
-- **Prefix matching**: Fast O(k) lookup by signal prefix
-- **Fuzzy matching**: Fallback fuzzy search for typo tolerance
-- **Cross-document**: Signals from all open documents are available
+### Semantic Error Checking
 
-Example:
-```wal
-(load "signals.vcd")
-(defsig my-signal (= clk 1))
+在 tree-sitter 语法检查的基础上，额外提供语义级诊断：
 
-;; Completion works for both loaded signals and defsig definitions
-(get tb.|)  ;; <- completion here shows all signals
+| 诊断类型 | 严重度 | 示例 |
+|---------|--------|------|
+| 未知函数/运算符 | ⚠️ WARNING | `(verilator-sim 1)` → Unknown function |
+| 参数数量不匹配 | ❌ ERROR | `(define)` → expects 2 arguments, got 0 |
+| 语法错误 | ❌ ERROR | `(define a (+ 1` → Syntax error |
+
+**已知符号库**: 89 个 WAL 运算符/特式/宏/内建函数  
+**精确 arity 检测**: 31 个函数，严格验证参数数量  
+
+---
+
+## Performance
+
+### Stress Test Results
+
+对 4,500,000 行 WAL 源码进行诊断测试（单机 8GB RAM）：
+
+```
+Lines        Diags        Time       Rate         Status
+─────────────────────────────────────────────────────────
+     5K         3.6K       0.1s    29,291/s      ✅
+    10K         7.1K       0.3s    28,324/s      ✅
+    50K        35.9K       1.4s    26,453/s      ✅
+   100K        71.6K       2.7s    26,378/s      ✅
+   500K       357.4K      14.5s    24,627/s      ✅
+  1,000K      714.5K      29.9s    23,880/s      ✅
+  2,000K    1,430.0K      56.2s    25,425/s      ✅
+  3,000K    2,129.1K     104.1s    20,454/s      ✅
+  4,000K    2,838.4K     157.8s    17,991/s      ✅
+  4,500K    3,119.9K     186.6s    16,719/s      ✅
+ ───────────────────────────────────────────────────────
+  5,000K    — TIMEOUT —  120s+     —             💥
 ```
 
-### Tab Formatting
-- Uses **tab indentation** (default 4 spaces equivalent)
-- AST-based formatting for proper S-expression alignment
-- Preserves nested list structure
+| 指标 | 值 |
+|------|-----|
+| 最大通过行数 | 4,500,000 |
+| 最大诊断数 | 3,119,946 |
+| 处理速率 | 16,700—29,300 d/s |
+| 断点 | 5,000,000 行 (tree-sitter 解析极限) |
+
+实际编辑中单个 `.wal` 文件极少超过 100K 行，性能绰绰有余。
+
+---
 
 ## Installation
 
 ### Prerequisites
 
-1. **Rust toolchain**
-   ```bash
-   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-   ```
+- Rust toolchain (1.70+)
 
-2. **Tree-sitter CLI** (for grammar development)
-   ```bash
-   npm install -g tree-sitter-cli
-   ```
-
-3. **WAL runtime** (optional, for `wal_execute` tool)
-   ```bash
-   # Install wal command
-   ```
-
-### Build
+### Build & Install
 
 ```bash
 cd WAL-lsp
 cargo build --release
+cp target/release/wal-lsp ~/.local/bin/
 ```
 
-The binary will be at `target/release/wal-lsp`.
+### Verify
+
+```bash
+$ wal-lsp --help
+$ wal-lsp --version
+```
+
+---
 
 ## Editor Configuration
 
 ### OpenCode
 
-Add to your MCP configuration:
+Add to `~/.config/opencode/opencode.json`:
+
 ```json
 {
-  "mcpServers": {
-    "wal-lsp": {
-      "command": "/path/to/wal-lsp",
-      "args": ["--mcp"]
+  "lsp": {
+    "wal": {
+      "command": ["/home/hesheng/.local/bin/wal-lsp"],
+      "extensions": [".wal", ".rkt"]
     }
   }
 }
@@ -90,107 +109,105 @@ Add to your MCP configuration:
 
 ### VS Code
 
-1. Install the VS Code extension
-2. The extension will auto-detect `.wal` files
+```json
+{
+  "languages": [{
+    "id": "wal",
+    "extensions": [".wal"],
+    "configuration": "./language-configuration.json"
+  }]
+}
+```
 
-### Neovim/Vim
+### Neovim
 
 ```lua
--- ~/.config/nvim/lsp/wal.lua
-local lspconfig = require('lspconfig')
-lspconfig.wal_lsp.setup({
-  cmd = {"/path/to/wal-lsp"},
-  filetypes = {"wal"},
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "wal",
+  callback = function()
+    vim.lsp.start({
+      name = "wal-lsp",
+      cmd = { "wal-lsp" },
+      root_dir = vim.fs.dirname(vim.fs.find({ ".git" }, { upward = true })[1]),
+    })
+  end,
 })
 ```
 
-### Emacs
+### Helix
 
-```elisp
-(require 'lsp-mode')
-(add-to-list 'lsp-language-id-configuration '(".*\\.wal\\'" . "wal"))
-(lsp-register-client
- (make-lsp-client :server-id 'wal-lsp
-                  :cmd '("wal-lsp")))
+```toml
+# ~/.config/helix/languages.toml
+[[language]]
+name = "wal"
+scope = "source.wal"
+file-types = ["wal", "rkt"]
+language-servers = ["wal-lsp"]
+
+[language-server.wal-lsp]
+command = "wal-lsp"
 ```
+
+---
 
 ## Usage
 
-### MCP Mode
-
 ```bash
-# Start MCP server
-wal-lsp --mcp
-
-# Then send JSON-RPC messages via stdin
-echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | wal-lsp --mcp
-```
-
-### LSP Mode
-
-```bash
-# Start LSP server (uses stdio by default)
+# Start LSP server (stdio)
 wal-lsp
-
-# Or explicitly
-wal-lsp --lsp
 ```
 
-## Project Structure
+The server communicates via JSON-RPC 2.0 over stdin/stdout using the LSP protocol.
 
+### Test LSP directly
+
+```bash
+# Initialize
+printf 'Content-Length: 108\r\n\r\n{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}' \
+  | wal-lsp
 ```
-WAL-lsp/
-├── Cargo.toml
-├── README.md
-├── src/
-│   ├── main.rs              # Entry point (LSP/MCP dual mode)
-│   ├── lib.rs               # Library exports
-│   ├── workspace/           # Workspace management
-│   │   ├── mod.rs          # Workspace, SymbolIndex, DocumentInfo
-│   │   └── waveform.rs     # WaveformManager for VCD signals
-│   ├── lsp/                 # LSP protocol implementation
-│   │   ├── mod.rs          # LSP server setup
-│   │   └── handlers/       # LSP request handlers
-│   │       ├── completion.rs   # Completion (keywords + signals)
-│   │       ├── diagnostics.rs  # Parse error reporting
-│   │       ├── goto.rs         # Cross-file goto definition
-│   │       ├── hover.rs        # Function documentation
-│   │       └── symbols.rs     # Document symbols
-│   ├── mcp/                # MCP protocol implementation
-│   │   ├── mod.rs
-│   │   └── tools.rs       # MCP tool definitions
-│   └── wal/                # WAL language core
-│       ├── mod.rs         # Module exports
-│       ├── parser.rs      # Tree-sitter wrapper
-│       ├── symbols.rs     # Symbol extraction from AST
-│       ├── completions.rs # Built-in function data
-│       ├── docs.rs        # Function documentation
-│       ├── format.rs      # Code formatter (tab indent)
-│       └── waveform.rs    # VCD/CSV header parsing
-├── tree-sitter-wal/       # Tree-sitter grammar
-│   ├── grammar.js
-│   └── src/               # Generated parser
-└── editors/               # Editor configurations
-```
+
+---
 
 ## Architecture
 
-### Workspace Module
-Centralized workspace management:
-- `Workspace` - document cache, symbol index, waveform manager
-- `DocumentInfo` - document text and version tracking
-- `SymbolIndex` - global symbol index for cross-file navigation
-- `WaveformManager` - VCD signal management
+```
+wal-lsp/
+├── src/
+│   ├── main.rs              # LSP entry point (clap: --help/--version)
+│   ├── workspace/           # Workspace management
+│   │   ├── mod.rs           # Workspace, DocumentInfo, SymbolIndex
+│   │   └── waveform.rs      # WaveformManager (VCD signal parsing)
+│   ├── lsp/
+│   │   ├── mod.rs           # LSP server (lsp-server, LazyLock workspace)
+│   │   └── handlers/
+│   │       ├── diagnostics.rs  # Syntax + semantic error checking (☆)
+│   │       ├── completion.rs   # Keyword + signal completion
+│   │       ├── hover.rs        # Function documentation
+│   │       ├── goto.rs         # Cross-file go-to-definition
+│   │       └── symbols.rs      # Document symbol tree
+│   └── wal/                 # WAL language tools
+│       ├── parser.rs        # Tree-sitter wrapper
+│       ├── completions.rs   # 125+ builtin completion items
+│       ├── docs.rs          # Function documentation (Lazy)
+│       ├── symbols.rs       # Symbol extraction from AST
+│       └── format.rs        # Code formatter
+├── tree-sitter-wal/         # Tree-sitter WAL grammar
+└── editors/                 # Editor configuration presets
+```
 
-### Signal Completion Flow
-```
-1. User triggers completion (e.g., typing "tb.")
-2. LSP extracts prefix from cursor position
-3. Workspace looks up signals in WaveformManager
-4. Prefix match → Fuzzy fallback
-5. Returns completion items
-```
+### Key Design Decisions
+
+| 决策 | 说明 |
+|------|------|
+| **Pure LSP** | 无 MCP 模式，单一职责 |
+| **LazyLock 工作空间** | 单例 `Arc<RwLock<Workspace>>`，所有 handler 共享 |
+| **RwLock 毒化保护** | 所有 `.read()`/`.write()` 使用 `unwrap_or_else(|e| e.into_inner())` |
+| **语义检查器** | tree-sitter AST 遍历 + 已知符号/arity 对照表 |
+| **顶层检测** | `is_toplevel` 检查避免递归体变量误报 |
+
+---
 
 ## License
 
-BSD-3-Clause (same as WAL project)
+BSD-3-Clause

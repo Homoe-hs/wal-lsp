@@ -25,11 +25,11 @@ fn find_definition(params: &TextDocumentPositionParams) -> Option<GotoDefinition
     let character = params.position.character;
 
     let word = {
-        let ws = WORKSPACE.read().unwrap();
+        let ws = WORKSPACE.read().unwrap_or_else(|e| e.into_inner());
         ws.get_word_at_position(uri, line, character)?
     };
 
-    let ws = WORKSPACE.read().unwrap();
+    let ws = WORKSPACE.read().unwrap_or_else(|e| e.into_inner());
     let locations = ws.symbol_index.find(&word);
 
     if locations.is_empty() {

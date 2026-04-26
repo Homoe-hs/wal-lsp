@@ -1,3 +1,4 @@
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -161,7 +162,7 @@ pub const MACROS: &[(&str, &str)] = &[
     ("set!", "设置变量 (set! key value)"),
 ];
 
-pub fn get_all_completions() -> Vec<CompletionItem> {
+static ALL_COMPLETIONS: Lazy<Vec<CompletionItem>> = Lazy::new(|| {
     let mut items = Vec::new();
 
     for (name, detail) in OPERATORS {
@@ -201,6 +202,10 @@ pub fn get_all_completions() -> Vec<CompletionItem> {
     }
 
     items
+});
+
+pub fn get_all_completions() -> Vec<CompletionItem> {
+    ALL_COMPLETIONS.clone()
 }
 
 #[cfg(test)]

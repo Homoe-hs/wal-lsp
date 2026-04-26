@@ -1,6 +1,7 @@
 pub mod completions;
 pub mod docs;
 pub mod format;
+pub mod fst_reader;
 pub mod parser;
 pub mod symbols;
 pub mod waveform;

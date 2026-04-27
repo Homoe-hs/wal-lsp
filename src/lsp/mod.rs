@@ -41,6 +41,7 @@ pub fn run() -> Result<()> {
         hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
         definition_provider: Some(lsp_types::OneOf::Left(true)),
         document_symbol_provider: Some(lsp_types::OneOf::Left(true)),
+        document_formatting_provider: Some(lsp_types::OneOf::Left(true)),
         ..Default::default()
     })
     .map_err(|e| anyhow::anyhow!("Failed to serialize capabilities: {}", e))?;
@@ -90,6 +91,7 @@ fn handle_request(connection: &Connection, req: Request) -> Result<()> {
         "textDocument/hover" => handlers::hover::handle(connection, req),
         "textDocument/definition" => handlers::goto::handle(connection, req),
         "textDocument/documentSymbol" => handlers::symbols::handle(connection, req),
+        "textDocument/formatting" => handlers::formatting::handle(connection, req),
         _ => {
             info!("Unhandled request: {}", req.method);
             Ok(())

@@ -1,5 +1,6 @@
 use crate::lsp::WORKSPACE;
 use crate::wal::parser::WalParser;
+use crate::wal::symbols::extract_symbols;
 use anyhow::Result;
 use lsp_server::{Connection, Notification};
 use lsp_types::{Diagnostic, DiagnosticSeverity, PublishDiagnosticsParams, Position, Range};
@@ -207,6 +208,12 @@ fn analyze_document(text: &str) -> Vec<Diagnostic> {
 
     let mut diagnostics = Vec::new();
 
+    // 0. Extract user-defined symbols (define/defun/defsig/defmacro) for skip-list
+    let user_symbols: HashSet<String> = extract_symbols(text)
+        .into_iter()
+        .map(|s| s.name)
+        .collect();
+
     // 1. Syntax errors (from tree-sitter ERROR nodes)
     if tree.root_node().has_error() {
         let mut cursor = tree.walk();
@@ -214,7 +221,7 @@ fn analyze_document(text: &str) -> Vec<Diagnostic> {
     }
 
     // 2. Semantic errors (unknown functions, wrong arity)
-    collect_semantic_errors(tree.root_node(), text, &mut diagnostics);
+    collect_semantic_errors(tree.root_node(), text, &user_symbols, &mut diagnostics);
 
     diagnostics
 }
@@ -267,18 +274,19 @@ fn collect_syntax_errors(
 fn collect_semantic_errors(
     node: tree_sitter::Node,
     source: &str,
+    user_symbols: &HashSet<String>,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let kind = node.kind();
 
     if kind == "list" {
-        validate_list_node(node, source, diagnostics);
+        validate_list_node(node, source, user_symbols, diagnostics);
     }
 
     // Recurse into children
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
-        collect_semantic_errors(child, source, diagnostics);
+        collect_semantic_errors(child, source, user_symbols, diagnostics);
     }
 }
 
@@ -332,16 +340,9 @@ fn get_sub_sexprs(node: tree_sitter::Node) -> Vec<tree_sitter::Node> {
 }
 
 /// Check if a list node uses ( ) brackets (function call syntax) vs [ ] or { }
-fn is_paren_list(node: tree_sitter::Node, source: &str) -> bool {
-    let mut cursor = node.walk();
-    let children: Vec<_> = node.children(&mut cursor).collect();
-    children.first()
-        .and_then(|c| source.get(c.byte_range()))
-        .map(|s| s.starts_with('('))
-        .unwrap_or(false)
-}
+// (removed unused is_paren_list)
 
-fn validate_list_node(node: tree_sitter::Node, source: &str, diagnostics: &mut Vec<Diagnostic>) {
+fn validate_list_node(node: tree_sitter::Node, source: &str, user_symbols: &HashSet<String>, diagnostics: &mut Vec<Diagnostic>) {
     let form_info = match get_form_info(node, source) {
         Some(info) => info,
         None => return,
@@ -360,7 +361,7 @@ fn validate_list_node(node: tree_sitter::Node, source: &str, diagnostics: &mut V
 
     // ---- Known-symbol check (top-level only, to avoid false positives) ----
     if is_top_level && is_fn_call_form {
-        if !KNOWN_SYMBOLS.contains(fn_name.as_str()) {
+        if !KNOWN_SYMBOLS.contains(fn_name.as_str()) && !user_symbols.contains(fn_name.as_str()) {
             let range = range_from_point(fn_pos, fn_name.len());
             if !fn_name.starts_with('\'') && !fn_name.starts_with('`')
                 && !fn_name.starts_with('#') && !fn_name.starts_with('~')
@@ -413,8 +414,8 @@ fn validate_form_structure(
 ) {
     match fn_name {
         "let" => validate_let_form(sub_sexprs, fn_pos, source, diagnostics),
-        "case" => validate_case_form(sub_sexprs, fn_pos, source, diagnostics),
-        "defun" | "fn" => validate_fn_params(sub_sexprs, fn_pos, fn_name, source, diagnostics),
+        "case" => validate_case_form(sub_sexprs, fn_pos, diagnostics),
+        "defun" | "fn" => validate_fn_params(sub_sexprs, fn_name, source, diagnostics),
         _ => {}
     }
 }
@@ -472,7 +473,6 @@ fn validate_let_form(
 fn validate_case_form(
     sub_sexprs: &[tree_sitter::Node],
     fn_pos: &tree_sitter::Point,
-    source: &str,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     // Clauses start from sub_sexprs[1] onward (after "case" and the key)
@@ -504,7 +504,6 @@ fn validate_case_form(
 /// Validate fn/defun parameter list: all elements must be atoms
 fn validate_fn_params(
     sub_sexprs: &[tree_sitter::Node],
-    fn_pos: &tree_sitter::Point,
     fn_name: &str,
     source: &str,
     diagnostics: &mut Vec<Diagnostic>,
@@ -558,18 +557,26 @@ fn get_bracket_contents<'a>(node: tree_sitter::Node<'a>) -> Vec<Vec<tree_sitter:
     let inner = get_sub_sexprs(list_node);
     
     // Check if contents are nested brackets (e.g., [[a 1] [b 2]])
-    let has_nested = inner.iter().any(|s| {
-        let mut c = s.walk();
-        let result = s.children(&mut c).any(|ch| ch.kind() == "list");
+    // Only check the first element — if it's a bracketed list, we have nested bindings
+    let has_nested = inner.first().map_or(false, |s| {
+        let c = &mut s.walk();
+        let result = s.children(c).any(|ch| ch.kind() == "list");
         result
     });
     
     if has_nested {
-        // Each outer sexpr wraps a [...] list; extract its contents
-        inner.iter().map(|s| get_sub_sexprs(*s)).collect()
+        // Each outer sexpr wraps a [...] list; unwrap and extract its contents
+        inner.iter().map(|s| {
+            let mut c = s.walk();
+            let list = s.children(&mut c).find(|ch| ch.kind() == "list");
+            match list {
+                Some(l) => get_sub_sexprs(l),
+                None => vec![],
+            }
+        }).collect()
     } else {
-        // Flat list; each element is its own group
-        inner.iter().map(|&s| vec![s]).collect()
+        // Flat list; treat the whole thing as one group
+        vec![inner]
     }
 }
 

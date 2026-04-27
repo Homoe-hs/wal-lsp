@@ -731,10 +731,6 @@ static FUNCTION_DOCS: Lazy<HashMap<String, FunctionDoc>> = Lazy::new(|| {
     docs
 });
 
-pub fn get_function_docs() -> &'static HashMap<String, FunctionDoc> {
-    &FUNCTION_DOCS
-}
-
 pub fn get_doc(name: &str) -> Option<FunctionDoc> {
     FUNCTION_DOCS.get(name).cloned()
 }

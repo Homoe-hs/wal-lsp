@@ -108,7 +108,14 @@ fn extract_prefix(line: &str, cursor_col: usize) -> String {
             break;
         }
     }
-    before[end..].to_string()
+    let prefix = before[end..].to_string();
+    // Don't filter when prefix is purely operator characters (e.g., just typed "+")
+    let has_alpha = prefix.chars().any(|c| c.is_alphanumeric());
+    if !has_alpha && !prefix.is_empty() {
+        String::new()
+    } else {
+        prefix
+    }
 }
 
 fn extract_signal_prefix(line: &str, cursor_pos: usize) -> String {

@@ -322,7 +322,7 @@
     },
     "string": {
       "type": "PATTERN",
-      "value": "\"[^\"]*\""
+      "value": "\"([^\"\\\\]|\\\\.)*\""
     },
     "list": {
       "type": "CHOICE",

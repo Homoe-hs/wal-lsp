@@ -24,12 +24,12 @@ pub fn handle(connection: &Connection, req: Request) -> Result<()> {
     let formatted = format_document(&text);
 
     let line_count = text.lines().count() as u32;
-    let last_line_len = text.lines().last().map(|l| l.len() as u32).unwrap_or(0);
 
+    // Use a wide range to ensure the full document is replaced regardless of length changes
     let edit = TextEdit {
         range: Range::new(
             Position::new(0, 0),
-            Position::new(line_count.saturating_sub(1), last_line_len),
+            Position::new(line_count.max(1) + 9999, 0),
         ),
         new_text: formatted,
     };

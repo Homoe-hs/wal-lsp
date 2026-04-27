@@ -26,7 +26,7 @@ pub fn run() -> Result<()> {
 
     let server_capabilities = to_value(lsp_types::ServerCapabilities {
         text_document_sync: Some(lsp_types::TextDocumentSyncCapability::Kind(
-            lsp_types::TextDocumentSyncKind::INCREMENTAL,
+            lsp_types::TextDocumentSyncKind::FULL,
         )),
         completion_provider: Some(lsp_types::CompletionOptions {
             resolve_provider: Some(true),
@@ -92,6 +92,12 @@ fn handle_request(connection: &Connection, req: Request) -> Result<()> {
         "textDocument/definition" => handlers::goto::handle(connection, req),
         "textDocument/documentSymbol" => handlers::symbols::handle(connection, req),
         "textDocument/formatting" => handlers::formatting::handle(connection, req),
+        "shutdown" => {
+            info!("Received shutdown request");
+            let resp = lsp_server::Response::new_ok(req.id, serde_json::Value::Null);
+            connection.sender.send(lsp_server::Message::Response(resp))?;
+            Ok(())
+        }
         _ => {
             info!("Unhandled request: {}", req.method);
             Ok(())
@@ -103,10 +109,7 @@ fn handle_notification(connection: &Connection, notif: Notification) -> Result<(
     match notif.method.as_str() {
         "textDocument/didOpen" => handlers::diagnostics::handle_did_open(connection, notif),
         "textDocument/didChange" => handlers::diagnostics::handle_did_change(connection, notif),
-        "shutdown" => {
-            info!("Received shutdown request");
-            Ok(())
-        }
+        "textDocument/didClose" => handlers::diagnostics::handle_did_close(connection, notif),
         _ => {
             info!("Unhandled notification: {}", notif.method);
             Ok(())

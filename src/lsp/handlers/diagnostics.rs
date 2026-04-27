@@ -202,6 +202,31 @@ pub fn handle_did_change(connection: &Connection, notif: Notification) -> Result
     Ok(())
 }
 
+pub fn handle_did_close(connection: &Connection, notif: Notification) -> Result<()> {
+    let params = notif
+        .extract::<lsp_types::DidCloseTextDocumentParams>("textDocument/didClose")
+        .map_err(|e| anyhow::anyhow!("Failed to extract params: {:?}", e))?;
+
+    let uri = params.text_document.uri.clone();
+    info!("Document closed: {:?}", uri);
+
+    {
+        let mut ws = WORKSPACE.write().unwrap_or_else(|e| e.into_inner());
+        ws.close_document(&uri);
+    }
+
+    // Clear diagnostics for closed document
+    let params = PublishDiagnosticsParams {
+        uri,
+        diagnostics: vec![],
+        version: None,
+    };
+    let notification = Notification::new("textDocument/publishDiagnostics".to_string(), params);
+    connection.sender.send(lsp_server::Message::Notification(notification))?;
+
+    Ok(())
+}
+
 fn analyze_document(text: &str) -> Vec<Diagnostic> {
     let mut parser = WalParser::new();
     let tree = parser.parse_with_errors(text);
@@ -362,7 +387,9 @@ fn validate_list_node(node: tree_sitter::Node, source: &str, user_symbols: &Hash
 
     // ---- Known-symbol check (top-level only, to avoid false positives) ----
     if is_top_level && is_fn_call_form {
-        if !KNOWN_SYMBOLS.contains(fn_name.as_str()) && !user_symbols.contains(fn_name.as_str()) {
+        // Skip number literals that tree-sitter parsed as atoms (e.g., +5, -3)
+        let is_number_literal = fn_name.parse::<i64>().is_ok() || fn_name.parse::<f64>().is_ok();
+        if !is_number_literal && !KNOWN_SYMBOLS.contains(fn_name.as_str()) && !user_symbols.contains(fn_name.as_str()) {
             let range = range_from_point(fn_pos, fn_name.len());
             if !fn_name.starts_with('\'') && !fn_name.starts_with('`')
                 && !fn_name.starts_with('#') && !fn_name.starts_with('~')

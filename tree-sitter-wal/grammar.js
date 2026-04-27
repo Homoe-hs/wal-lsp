@@ -59,7 +59,7 @@ module.exports = grammar({
     grouped_symbol: $ => seq("#", $.base_symbol),
     base_symbol: () => /[a-zA-Z_\.][=$\*\/>:\.\-_\?=%§^!\\~+<>|,\w]*/,
 
-    string: () => /"[^"]*"/,
+    string: () => /"([^"\\]|\\.)*"/,
 
     list: $ => choice(
       seq("(", optional($.sexpr_list), ")"),

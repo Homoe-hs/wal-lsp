@@ -28,7 +28,7 @@ fn get_hover_info(params: &lsp_types::TextDocumentPositionParams) -> Option<Hove
     let position = params.position;
 
     let word = {
-        let ws = WORKSPACE.read().ok()?;
+        let ws = WORKSPACE.read().unwrap_or_else(|e| e.into_inner());
         ws.get_word_at_position(uri, position.line, position.character)?
     };
 

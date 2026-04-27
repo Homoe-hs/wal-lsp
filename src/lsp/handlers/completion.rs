@@ -47,7 +47,7 @@ pub fn handle(connection: &Connection, req: Request) -> Result<()> {
 }
 
 fn get_signal_completions(uri: &lsp_types::Uri, position: lsp_types::Position) -> Option<Vec<CompletionItem>> {
-    let ws = WORKSPACE.read().ok()?;
+    let ws = WORKSPACE.read().unwrap_or_else(|e| e.into_inner());
     let doc = ws.get_document(uri)?;
 
     let lines: Vec<&str> = doc.text.lines().collect();

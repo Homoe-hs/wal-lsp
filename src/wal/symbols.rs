@@ -38,82 +38,80 @@ fn extract_symbols_recursive(node: Node, source: &str, symbols: &mut Vec<WalSymb
 
 #[allow(dead_code)]
 fn try_extract_definition(node: Node, source: &str) -> Option<WalSymbol> {
+    if node.kind() != "list" {
+        return None;
+    }
+
     let mut cursor = node.walk();
-    let child_nodes: Vec<Node> = node.children(&mut cursor).collect();
+    let children: Vec<Node> = node.children(&mut cursor).collect();
 
-    if child_nodes.is_empty() {
+    // Find the sexpr_list inside this list node
+    let sexpr_list = children.iter().find(|c| c.kind() == "sexpr_list")?;
+    let sl_children: Vec<Node> = {
+        let mut c = sexpr_list.walk();
+        sexpr_list.children(&mut c)
+            .filter(|child| child.kind() == "sexpr")
+            .collect()
+    };
+
+    if sl_children.is_empty() {
         return None;
     }
 
-    let first = child_nodes.first()?;
-    if first.kind() != "atom" && first.kind() != "symbol" && first.kind() != "base_symbol" {
-        return None;
-    }
+    let first_text = get_sexpr_text(sl_children[0], source)?;
 
-    let first_text = get_node_text(*first, source)?;
-    let kind = match first_text.as_str() {
-        "define" => SymbolKind::VARIABLE,
-        "fn" => SymbolKind::FUNCTION,
-        "defsig" => SymbolKind::VARIABLE,
-        "defmacro" => SymbolKind::METHOD,
+    let (sym_kind, use_second_as_name) = match first_text.as_str() {
+        "define" => (SymbolKind::VARIABLE, true),
+        "defun" => (SymbolKind::FUNCTION, true),
+        "defmacro" => (SymbolKind::METHOD, true),
+        "defsig" => (SymbolKind::VARIABLE, true),
+        "fn" => (SymbolKind::FUNCTION, false),
         _ => return None,
     };
 
-    let name = if child_nodes.len() >= 2 {
-        get_node_text(child_nodes[1], source).unwrap_or_else(|| first_text.clone())
+    let name = if use_second_as_name && sl_children.len() >= 2 {
+        get_sexpr_text(sl_children[1], source).unwrap_or_else(|| first_text.clone())
     } else {
         first_text.clone()
     };
 
-    let range = node_to_range(node);
-
-    let mut children = Vec::new();
-    for (i, child) in child_nodes.iter().enumerate().skip(2) {
-        if child.kind() == "list" || child.kind() == "sexpr" {
-            if let Some(child_symbol) = try_extract_definition(*child, source) {
-                children.push(child_symbol);
-            }
-        } else if i > 1 {
-            let text = get_node_text(*child, source).unwrap_or_default();
-            if !text.is_empty() && text != "[]" && text != "()" && text != "{}" {
-                children.push(WalSymbol {
-                    name: text,
-                    kind: SymbolKind::FIELD,
-                    range: node_to_range(*child),
-                    detail: None,
-                    children: Vec::new(),
-                });
-            }
-        }
-    }
-
-    let detail = match first_text.as_str() {
-        "define" if child_nodes.len() >= 3 => {
-            let value_text = get_node_text(child_nodes[2], source);
-            Some(format!("= {}", value_text.unwrap_or_default()))
-        }
-        "fn" if child_nodes.len() >= 3 => {
-            let args_text = get_node_text(child_nodes[2], source);
-            Some(format!("fn {}", args_text.unwrap_or_default()))
-        }
-        "defsig" if child_nodes.len() >= 3 => {
-            let expr_text = get_node_text(child_nodes[2], source);
-            Some(format!("defsig {}", expr_text.unwrap_or_default()))
-        }
-        "defmacro" if child_nodes.len() >= 3 => {
-            let args_text = get_node_text(child_nodes[2], source);
-            Some(format!("macro {}", args_text.unwrap_or_default()))
-        }
-        _ => None,
+    let detail = if use_second_as_name && sl_children.len() >= 3 {
+        let value_text = get_sexpr_text(sl_children[2], source);
+        Some(format!("= {}", value_text.unwrap_or_default()))
+    } else if !use_second_as_name && sl_children.len() >= 2 {
+        let args_text = get_sexpr_text(sl_children[1], source);
+        Some(format!("fn {}", args_text.unwrap_or_default()))
+    } else {
+        None
     };
+
+    let range = node_to_range(node);
 
     Some(WalSymbol {
         name,
-        kind,
+        kind: sym_kind,
         range,
         detail,
-        children,
+        children: Vec::new(),
     })
+}
+
+fn get_sexpr_text(sexpr: Node, source: &str) -> Option<String> {
+    let mut cursor = sexpr.walk();
+    let children: Vec<Node> = sexpr.children(&mut cursor).collect();
+
+    for child in children {
+        match child.kind() {
+            "atom" | "symbol" | "base_symbol" | "scoped_symbol" | "grouped_symbol"
+            | "string" | "int" | "float" | "bool" | "operator" => {
+                return source
+                    .get(child.byte_range())
+                    .map(|s| s.trim().to_string());
+            }
+            _ => {}
+        }
+    }
+    None
 }
 
 #[allow(dead_code)]
@@ -176,7 +174,8 @@ mod tests {
         let source = "(define pi 3.14159)";
         let symbols = extract_symbols(source);
         assert!(!symbols.is_empty());
-        assert_eq!(symbols[0].name, "define");
+        assert_eq!(symbols[0].name, "pi");
+        assert_eq!(symbols[0].kind, SymbolKind::VARIABLE);
     }
 
     #[test]
@@ -188,12 +187,26 @@ mod tests {
     }
 
     #[test]
+    fn test_extract_defun() {
+        let source = "(defun add [a b] (+ a b))";
+        let symbols = extract_symbols(source);
+        assert!(!symbols.is_empty());
+        assert_eq!(symbols[0].name, "add");
+        assert_eq!(symbols[0].kind, SymbolKind::FUNCTION);
+    }
+
+    #[test]
     fn test_extract_complex() {
         let source = r#"
 (define add (fn [x y] (+ x y)))
 (define greeting "Hello")
 "#;
         let symbols = extract_symbols(source);
-        assert!(symbols.len() >= 2);
+        assert!(!symbols.is_empty());
+        // First symbol: "add" from (define add ...)
+        assert_eq!(symbols[0].name, "add");
+        // Second symbol: "greeting" from (define greeting ...)
+        // The inner (fn ...) is also extracted as a nested symbol (name="fn")
+        assert!(symbols.iter().any(|s| s.name == "greeting"));
     }
 }

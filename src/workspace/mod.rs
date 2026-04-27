@@ -210,9 +210,9 @@ mod tests {
 
         ws.open_document(uri.clone(), text);
 
-        let locations = ws.symbol_index.find("define");
+        let locations = ws.symbol_index.find("x");
         assert!(!locations.is_empty());
-        assert_eq!(locations[0].name, "define");
+        assert_eq!(locations[0].name, "x");
     }
 
     #[test]
@@ -236,10 +236,13 @@ mod tests {
         ws.open_document(uri1.clone(), "(define foo 1)".to_string());
         ws.open_document(uri2.clone(), "(define bar 2)".to_string());
 
-        let foo_locations = ws.symbol_index.find("define");
-        assert_eq!(foo_locations.len(), 2);
-        assert!(foo_locations.iter().any(|l| l.uri == uri1));
-        assert!(foo_locations.iter().any(|l| l.uri == uri2));
+        let foo_locations = ws.symbol_index.find("foo");
+        assert_eq!(foo_locations.len(), 1);
+        assert_eq!(foo_locations[0].uri, uri1);
+
+        let bar_locations = ws.symbol_index.find("bar");
+        assert_eq!(bar_locations.len(), 1);
+        assert_eq!(bar_locations[0].uri, uri2);
     }
 
     #[test]

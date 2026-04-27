@@ -79,7 +79,7 @@ static KNOWN_SYMBOLS: Lazy<HashSet<&'static str>> = Lazy::new(|| {
     set.insert("partition"); set.insert("filter"); set.insert("sort"); set.insert("reverse");
     set.insert("append");
     // Others
-    set.insert("signal?"); set.insert("abs"); set.insert("signed");
+    set.insert("signal?"); set.insert("abs"); set.insert("signed"); set.insert("reval");
     set.insert("null?"); set.insert("list?");
     // Boolean literals (self-evaluating)
     set.insert("true"); set.insert("false"); set.insert("nil");

@@ -1,5 +1,5 @@
 use crate::lsp::WORKSPACE;
-use crate::wal::completions::{BUILTIN_FUNCTIONS, MACROS, SPECIAL_FORMS};
+use crate::wal::completions::{BUILTIN_FUNCTIONS, MACROS, OPERATORS, SPECIAL_FORMS};
 use crate::wal::docs::get_doc;
 use anyhow::Result;
 use lsp_server::{Connection, Request, Response};
@@ -42,7 +42,11 @@ fn get_hover_info(params: &lsp_types::TextDocumentPositionParams) -> Option<Hove
         });
     }
 
-    for (name, detail) in BUILTIN_FUNCTIONS.iter().chain(SPECIAL_FORMS.iter()).chain(MACROS.iter()) {
+    for (name, detail) in BUILTIN_FUNCTIONS
+        .iter()
+        .chain(SPECIAL_FORMS.iter())
+        .chain(MACROS.iter())
+        .chain(OPERATORS.iter()) {
         if *name == word {
             return Some(Hover {
                 contents: HoverContents::Scalar(MarkedString::String(format!(

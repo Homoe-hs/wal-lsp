@@ -223,25 +223,27 @@ fn collect_syntax_errors(
         let start = node.start_position();
         let end = node.end_position();
 
-        let range = Range::new(
-            Position::new(start.row as u32, start.column as u32),
-            Position::new(end.row as u32, end.column as u32),
-        );
-
         let error_node_text = source.get(node.byte_range()).unwrap_or("");
-        // Truncate long error messages
-        let truncated = if error_node_text.len() > 80 {
-            format!("{}...", &error_node_text[..77])
-        } else {
-            error_node_text.to_string()
-        };
+        // Skip ERROR nodes that are just comments swallowed by error recovery
+        if !error_node_text.trim_start().starts_with(";;") {
+            let range = Range::new(
+                Position::new(start.row as u32, start.column as u32),
+                Position::new(end.row as u32, end.column as u32),
+            );
+            // Truncate long error messages
+            let truncated = if error_node_text.len() > 80 {
+                format!("{}...", &error_node_text[..77])
+            } else {
+                error_node_text.to_string()
+            };
 
-        diagnostics.push(Diagnostic {
-            range,
-            severity: Some(DiagnosticSeverity::ERROR),
-            message: format!("Syntax error: {}", truncated),
-            ..Default::default()
-        });
+            diagnostics.push(Diagnostic {
+                range,
+                severity: Some(DiagnosticSeverity::ERROR),
+                message: format!("Syntax error: {}", truncated),
+                ..Default::default()
+            });
+        }
     }
 
     if cursor.goto_first_child() {

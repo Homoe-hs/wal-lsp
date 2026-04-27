@@ -511,6 +511,223 @@ static FUNCTION_DOCS: Lazy<HashMap<String, FunctionDoc>> = Lazy::new(|| {
         },
     );
 
+    // ---- List accessors ----
+    docs.insert(
+        "first".to_string(),
+        FunctionDoc {
+            name: "first".to_string(),
+            signature: "(first xs)".to_string(),
+            description: "Returns the first element of list xs.".to_string(),
+            example: Some("(first '(10 20 30)) ;; => 10".to_string()),
+        },
+    );
+    docs.insert(
+        "second".to_string(),
+        FunctionDoc {
+            name: "second".to_string(),
+            signature: "(second xs)".to_string(),
+            description: "Returns the second element of list xs.".to_string(),
+            example: Some("(second '(10 20 30)) ;; => 20".to_string()),
+        },
+    );
+    docs.insert(
+        "last".to_string(),
+        FunctionDoc {
+            name: "last".to_string(),
+            signature: "(last xs)".to_string(),
+            description: "Returns the last element of list xs.".to_string(),
+            example: Some("(last '(1 2 3 4 5)) ;; => 5".to_string()),
+        },
+    );
+    docs.insert(
+        "rest".to_string(),
+        FunctionDoc {
+            name: "rest".to_string(),
+            signature: "(rest xs)".to_string(),
+            description: "Returns a list containing all but the first element of xs.".to_string(),
+            example: Some("(rest '(1 2 3)) ;; => (2 3)".to_string()),
+        },
+    );
+    docs.insert(
+        "in".to_string(),
+        FunctionDoc {
+            name: "in".to_string(),
+            signature: "(in x xs)".to_string(),
+            description: "Membership test. Returns true if x is an element in list xs.".to_string(),
+            example: Some("(in 2 '(1 2 3)) ;; => #t".to_string()),
+        },
+    );
+    docs.insert(
+        "min".to_string(),
+        FunctionDoc {
+            name: "min".to_string(),
+            signature: "(min xs)".to_string(),
+            description: "Returns the smallest element in list xs.".to_string(),
+            example: Some("(min '(1 5 3 9 2)) ;; => 1".to_string()),
+        },
+    );
+    docs.insert(
+        "max".to_string(),
+        FunctionDoc {
+            name: "max".to_string(),
+            signature: "(max xs)".to_string(),
+            description: "Returns the largest element in list xs.".to_string(),
+            example: Some("(max '(1 5 3 9 2)) ;; => 9".to_string()),
+        },
+    );
+    docs.insert(
+        "sum".to_string(),
+        FunctionDoc {
+            name: "sum".to_string(),
+            signature: "(sum xs)".to_string(),
+            description: "Returns the sum of all elements in list xs.".to_string(),
+            example: Some("(sum '(1 2 3 4 5)) ;; => 15".to_string()),
+        },
+    );
+    docs.insert(
+        "average".to_string(),
+        FunctionDoc {
+            name: "average".to_string(),
+            signature: "(average xs)".to_string(),
+            description: "Returns the arithmetic mean of all elements in list xs.".to_string(),
+            example: Some("(average '(1 2 3 4 5)) ;; => 3".to_string()),
+        },
+    );
+    docs.insert(
+        "length".to_string(),
+        FunctionDoc {
+            name: "length".to_string(),
+            signature: "(length xs)".to_string(),
+            description: "Returns the number of elements in list xs.".to_string(),
+            example: Some("(length '(a b c)) ;; => 3".to_string()),
+        },
+    );
+
+    // ---- Waveform: unload, alias, unalias ----
+    docs.insert(
+        "unload".to_string(),
+        FunctionDoc {
+            name: "unload".to_string(),
+            signature: "(unload id)".to_string(),
+            description: "Removes the waveform specified by id from the WAL kernel.".to_string(),
+            example: Some("(unload t0)".to_string()),
+        },
+    );
+    docs.insert(
+        "alias".to_string(),
+        FunctionDoc {
+            name: "alias".to_string(),
+            signature: "(alias name signal)".to_string(),
+            description: "Create an alias so signal can also be referenced by name. Aliases are compatible with groups and scopes.".to_string(),
+            example: Some("(alias 'myclk 'tb.clk)".to_string()),
+        },
+    );
+    docs.insert(
+        "unalias".to_string(),
+        FunctionDoc {
+            name: "unalias".to_string(),
+            signature: "(unalias name)".to_string(),
+            description: "Removes the alias identified by name.".to_string(),
+            example: Some("(unalias 'myclk)".to_string()),
+        },
+    );
+
+    // ---- Groups and Scopes ----
+    docs.insert(
+        "resolve-group".to_string(),
+        FunctionDoc {
+            name: "resolve-group".to_string(),
+            signature: "(resolve-group name)".to_string(),
+            description: "Evaluates signal name appended by CG (current group) and returns the signal value at the current INDEX. Equivalent to the #name shorthand.".to_string(),
+            example: Some("(resolve-group #valid) ;; eval CG+\"valid\"".to_string()),
+        },
+    );
+    docs.insert(
+        "in-scopes".to_string(),
+        FunctionDoc {
+            name: "in-scopes".to_string(),
+            signature: "(in-scopes scopes body+)".to_string(),
+            description: "Evaluates body in every scope in scopes.".to_string(),
+            example: Some("(in-scopes (all-scopes) (print CS \":\" ~clk))".to_string()),
+        },
+    );
+    docs.insert(
+        "all-scopes".to_string(),
+        FunctionDoc {
+            name: "all-scopes".to_string(),
+            signature: "(all-scopes)".to_string(),
+            description: "Returns a list of all available scopes.".to_string(),
+            example: Some("(all-scopes)".to_string()),
+        },
+    );
+
+    // ---- Arrays ----
+    docs.insert(
+        "dela".to_string(),
+        FunctionDoc {
+            name: "dela".to_string(),
+            signature: "(dela array key)".to_string(),
+            description: "Removes the value at key from array. Key is converted to string.".to_string(),
+            example: Some("(dela (array ['x 10] ['y 20]) 'x) ;; => {(\"y\" 20)}".to_string()),
+        },
+    );
+    docs.insert(
+        "mapa".to_string(),
+        FunctionDoc {
+            name: "mapa".to_string(),
+            signature: "(mapa f array)".to_string(),
+            description: "Applies function f to every (key value) pair in array. f must take exactly two parameters: key and value. Returns a list.".to_string(),
+            example: Some("(mapa (fn [k v] (list k v)) (array ['x 10] ['y 20]))".to_string()),
+        },
+    );
+
+    // ---- Type predicates ----
+    docs.insert(
+        "atom?".to_string(),
+        FunctionDoc {
+            name: "atom?".to_string(),
+            signature: "(atom? x)".to_string(),
+            description: "Returns true if x is an atom (symbol, integer, boolean, or string). Returns false for lists and arrays.".to_string(),
+            example: Some("(atom? 42) ;; => #t\n(atom? '(1 2)) ;; => #f".to_string()),
+        },
+    );
+    docs.insert(
+        "symbol?".to_string(),
+        FunctionDoc {
+            name: "symbol?".to_string(),
+            signature: "(symbol? x)".to_string(),
+            description: "Returns true if x is a symbol.".to_string(),
+            example: Some("(symbol? 'hello) ;; => #t".to_string()),
+        },
+    );
+    docs.insert(
+        "string?".to_string(),
+        FunctionDoc {
+            name: "string?".to_string(),
+            signature: "(string? x)".to_string(),
+            description: "Returns true if x is a string.".to_string(),
+            example: Some("(string? \"hello\") ;; => #t".to_string()),
+        },
+    );
+    docs.insert(
+        "int?".to_string(),
+        FunctionDoc {
+            name: "int?".to_string(),
+            signature: "(int? x)".to_string(),
+            description: "Returns true if x is an integer.".to_string(),
+            example: Some("(int? 42) ;; => #t\n(int? 3.14) ;; => #f".to_string()),
+        },
+    );
+    docs.insert(
+        "list?".to_string(),
+        FunctionDoc {
+            name: "list?".to_string(),
+            signature: "(list? x)".to_string(),
+            description: "Returns true if x is a list.".to_string(),
+            example: Some("(list? '(1 2 3)) ;; => #t".to_string()),
+        },
+    );
+
     docs
 });
 

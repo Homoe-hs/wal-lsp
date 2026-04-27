@@ -125,6 +125,13 @@ static KNOWN_ARITIES: Lazy<Vec<(&'static str, usize)>> = Lazy::new(|| {
         // Waveform
         ("step", 1), ("alias", 2), ("unalias", 1),
         ("find", 1), ("count", 1),
+        // Scope/group
+        ("in-groups", 2), ("in-scope", 2), ("in-scopes", 2),
+        ("resolve-group", 1), ("all-scopes", 0),
+        // Comparison
+        ("!", 1), (">", 2), ("<", 2), (">=", 2), ("<=", 2),
+        // List aggregations
+        ("max", 1), ("min", 1),
     ]
 });
 
@@ -264,85 +271,8 @@ fn collect_semantic_errors(
 ) {
     let kind = node.kind();
 
-    // Only process list nodes at the top level (direct children of program/sexpr_list)
-    // Skip nested lists inside function bodies and bindings
     if kind == "list" {
-        // Check if this is a top-level expression (parent is sexpr, grandparent is sexpr_list or program)
-        let is_toplevel = node.parent().map_or(false, |p| {
-            p.kind() == "sexpr" && p.parent().map_or(false, |gp| {
-                gp.kind() == "program"
-            })
-        });
-
-        if is_toplevel {
-            let mut cursor = node.walk();
-            let children: Vec<_> = node.children(&mut cursor).collect();
-
-            let sexpr_list = children.iter().find(|c| c.kind() == "sexpr_list");
-            let sub_sexprs: Vec<tree_sitter::Node> = sexpr_list
-                .map(|sl| {
-                    let mut c = sl.walk();
-                    sl.children(&mut c).collect()
-                })
-                .unwrap_or_default();
-
-            if !sub_sexprs.is_empty() {
-                let fn_sexpr = sub_sexprs[0];
-                let fn_pos = fn_sexpr.start_position();
-                let fn_info: Option<(String, tree_sitter::Point)> = {
-                    let atoms: Vec<tree_sitter::Node> = {
-                        let mut fc = fn_sexpr.walk();
-                        fn_sexpr.children(&mut fc).collect()
-                    };
-                    atoms.iter()
-                        .find(|a| a.kind() == "atom")
-                        .and_then(|a| source.get(a.byte_range()).map(|s| (s.trim().to_string(), a.start_position())))
-                };
-
-                let arg_count = sub_sexprs.iter()
-                    .filter(|c| c.kind() == "sexpr")
-                    .count()
-                    .saturating_sub(1);
-
-                if let Some((ref fn_name, pos)) = fn_info {
-                    if !KNOWN_SYMBOLS.contains(fn_name.as_str()) {
-                        let range = Range::new(
-                            Position::new(pos.row as u32, pos.column as u32),
-                            Position::new(pos.row as u32, (pos.column + fn_name.len()) as u32),
-                        );
-                        if !fn_name.starts_with('\'') && !fn_name.starts_with('`')
-                            && !fn_name.starts_with('#') && !fn_name.starts_with('~')
-                            && !fn_name.starts_with(";;")
-                        {
-                            diagnostics.push(Diagnostic {
-                                range,
-                                severity: Some(DiagnosticSeverity::WARNING),
-                                message: format!("Unknown function or operator: '{}'", fn_name),
-                                ..Default::default()
-                            });
-                        }
-                    }
-
-                    for &(name, expected_arity) in KNOWN_ARITIES.iter() {
-                        if name == fn_name.as_str() && arg_count != expected_arity {
-                            let range = Range::new(
-                                Position::new(fn_pos.row as u32, fn_pos.column as u32),
-                                Position::new(fn_pos.row as u32, (fn_pos.column + fn_name.len()) as u32),
-                            );
-                            diagnostics.push(Diagnostic {
-                                range,
-                                severity: Some(DiagnosticSeverity::ERROR),
-                                message: format!(
-                                    "'{}' expects {} argument(s), got {}",
-                                    fn_name, expected_arity, arg_count
-                                ),
-                                ..Default::default()
-                            });
-                        }
-                    }
-                }
-            }
-        }
+        validate_list_node(node, source, diagnostics);
     }
 
     // Recurse into children
@@ -350,4 +280,307 @@ fn collect_semantic_errors(
     for child in node.children(&mut cursor) {
         collect_semantic_errors(child, source, diagnostics);
     }
+}
+
+/// Get the first atom text from a list node, handling bracket type
+fn get_form_info(node: tree_sitter::Node, source: &str) -> Option<(String, String, tree_sitter::Point)> {
+    let mut cursor = node.walk();
+    let children: Vec<_> = node.children(&mut cursor).collect();
+    
+    // Determine bracket type: (, [, or {
+    let bracket = children.first().map(|c| {
+        source.get(c.byte_range()).map(|s| s.trim().to_string()).unwrap_or_default()
+    }).unwrap_or_default();
+    
+    let sexpr_list = children.iter().find(|c| c.kind() == "sexpr_list")?;
+    let sl_children: Vec<tree_sitter::Node> = {
+        let mut c = sexpr_list.walk();
+        sexpr_list.children(&mut c)
+            .filter(|child| child.kind() == "sexpr")
+            .collect()
+    };
+    
+    if sl_children.is_empty() {
+        return None;
+    }
+    
+    let fn_sexpr = sl_children[0];
+    let fn_pos = fn_sexpr.start_position();
+    let fn_text = {
+        let mut fc = fn_sexpr.walk();
+        let atom_text = fn_sexpr.children(&mut fc)
+            .find(|a| a.kind() == "atom")
+            .and_then(|a| source.get(a.byte_range()).map(|s| s.trim().to_string()));
+        atom_text
+    }?;
+    
+    Some((fn_text, bracket, fn_pos))
+}
+
+/// Extract the raw sub-sexprs from a list (for arity counting etc.)
+fn get_sub_sexprs(node: tree_sitter::Node) -> Vec<tree_sitter::Node> {
+    let mut cursor = node.walk();
+    let children: Vec<_> = node.children(&mut cursor).collect();
+    let sexpr_list = match children.iter().find(|c| c.kind() == "sexpr_list") {
+        Some(sl) => sl,
+        None => return vec![],
+    };
+    let mut c = sexpr_list.walk();
+    sexpr_list.children(&mut c)
+        .filter(|child| child.kind() == "sexpr")
+        .collect()
+}
+
+/// Check if a list node uses ( ) brackets (function call syntax) vs [ ] or { }
+fn is_paren_list(node: tree_sitter::Node, source: &str) -> bool {
+    let mut cursor = node.walk();
+    let children: Vec<_> = node.children(&mut cursor).collect();
+    children.first()
+        .and_then(|c| source.get(c.byte_range()))
+        .map(|s| s.starts_with('('))
+        .unwrap_or(false)
+}
+
+fn validate_list_node(node: tree_sitter::Node, source: &str, diagnostics: &mut Vec<Diagnostic>) {
+    let form_info = match get_form_info(node, source) {
+        Some(info) => info,
+        None => return,
+    };
+    let (fn_name, bracket, fn_pos) = form_info;
+    let is_top_level = node.parent().map_or(false, |p| {
+        p.kind() == "sexpr" && p.parent().map_or(false, |gp| gp.kind() == "program")
+    });
+    let is_fn_call_form = bracket == "(";
+    
+    let sub_sexprs = get_sub_sexprs(node);
+    let arg_count = sub_sexprs.len().saturating_sub(1);
+
+    // ---- Structural validation for known forms (all levels) ----
+    validate_form_structure(&fn_name, &sub_sexprs, &fn_pos, node, source, diagnostics);
+
+    // ---- Known-symbol check (top-level only, to avoid false positives) ----
+    if is_top_level && is_fn_call_form {
+        if !KNOWN_SYMBOLS.contains(fn_name.as_str()) {
+            let range = range_from_point(fn_pos, fn_name.len());
+            if !fn_name.starts_with('\'') && !fn_name.starts_with('`')
+                && !fn_name.starts_with('#') && !fn_name.starts_with('~')
+                && !fn_name.starts_with(";;")
+            {
+                diagnostics.push(Diagnostic {
+                    range,
+                    severity: Some(DiagnosticSeverity::WARNING),
+                    message: format!("Unknown function or operator: '{}'", fn_name),
+                    ..Default::default()
+                });
+            }
+        }
+    }
+
+    // ---- Arity check (top-level + nested, for ( ) lists only) ----
+    if is_fn_call_form {
+        for &(name, expected_arity) in KNOWN_ARITIES.iter() {
+            if name == fn_name.as_str() && arg_count != expected_arity {
+                let range = range_from_point(fn_pos, fn_name.len());
+                diagnostics.push(Diagnostic {
+                    range,
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    message: format!(
+                        "'{}' expects {} argument(s), got {}",
+                        fn_name, expected_arity, arg_count
+                    ),
+                    ..Default::default()
+                });
+            }
+        }
+    }
+}
+
+fn range_from_point(pos: tree_sitter::Point, len: usize) -> Range {
+    Range::new(
+        Position::new(pos.row as u32, pos.column as u32),
+        Position::new(pos.row as u32, (pos.column + len) as u32),
+    )
+}
+
+/// Validate the structure of known special forms
+fn validate_form_structure(
+    fn_name: &str,
+    sub_sexprs: &[tree_sitter::Node],
+    fn_pos: &tree_sitter::Point,
+    _node: tree_sitter::Node,
+    source: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    match fn_name {
+        "let" => validate_let_form(sub_sexprs, fn_pos, source, diagnostics),
+        "case" => validate_case_form(sub_sexprs, fn_pos, source, diagnostics),
+        "defun" | "fn" => validate_fn_params(sub_sexprs, fn_pos, fn_name, source, diagnostics),
+        _ => {}
+    }
+}
+
+/// Validate let bindings: each binding is [id expr] where id must be an atom
+fn validate_let_form(
+    sub_sexprs: &[tree_sitter::Node],
+    fn_pos: &tree_sitter::Point,
+    source: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if sub_sexprs.len() < 2 {
+        let range = range_from_point(*fn_pos, "let".len());
+        diagnostics.push(Diagnostic {
+            range,
+            severity: Some(DiagnosticSeverity::ERROR),
+            message: "let expects at least one binding pair and a body".to_string(),
+            ..Default::default()
+        });
+        return;
+    }
+    // First sub-sexpr after "let" should be the binding list [...]
+    let binding_node = sub_sexprs[1];
+    let bindings = get_bracket_contents(binding_node);
+    
+    for (i, binding) in bindings.iter().enumerate() {
+        // Each binding [id expr] must have at least 2 elements
+        if binding.len() < 2 {
+            let pos = binding.first().map(|n| n.start_position()).unwrap_or(*fn_pos);
+            let range = range_from_point(pos, 1);
+            diagnostics.push(Diagnostic {
+                range,
+                severity: Some(DiagnosticSeverity::ERROR),
+                message: format!("let binding #{} is missing a value", i + 1),
+                ..Default::default()
+            });
+            continue;
+        }
+        // First element must be a valid identifier (atom)
+        if !is_atom_like(binding[0], source) {
+            let pos = binding[0].start_position();
+            let text = source.get(binding[0].byte_range()).unwrap_or("?").trim().to_string();
+            let range = range_from_point(pos, text.len());
+            diagnostics.push(Diagnostic {
+                range,
+                severity: Some(DiagnosticSeverity::ERROR),
+                message: format!("let binding #{} id must be a symbol, got '{}'", i + 1, text),
+                ..Default::default()
+            });
+        }
+    }
+}
+
+/// Validate case clauses: each is [value expr+]  
+fn validate_case_form(
+    sub_sexprs: &[tree_sitter::Node],
+    fn_pos: &tree_sitter::Point,
+    source: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    // Clauses start from sub_sexprs[1] onward (after "case" and the key)
+    if sub_sexprs.len() < 3 {
+        let range = range_from_point(*fn_pos, "case".len());
+        diagnostics.push(Diagnostic {
+            range,
+            severity: Some(DiagnosticSeverity::ERROR),
+            message: "case expects a key and at least one clause".to_string(),
+            ..Default::default()
+        });
+        return;
+    }
+    for (i, clause) in sub_sexprs.iter().enumerate().skip(2) {
+        let contents = get_bracket_contents(*clause);
+        if contents.is_empty() {
+            let pos = clause.start_position();
+            let range = range_from_point(pos, 1);
+            diagnostics.push(Diagnostic {
+                range,
+                severity: Some(DiagnosticSeverity::ERROR),
+                message: format!("case clause #{} is empty", i - 1),
+                ..Default::default()
+            });
+        }
+    }
+}
+
+/// Validate fn/defun parameter list: all elements must be atoms
+fn validate_fn_params(
+    sub_sexprs: &[tree_sitter::Node],
+    fn_pos: &tree_sitter::Point,
+    fn_name: &str,
+    source: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if sub_sexprs.len() < 2 {
+        return; // arity check handles this
+    }
+    let params_node = sub_sexprs[1];
+    let params = get_bracket_contents(params_node);
+    
+    for (i, param_group) in params.iter().enumerate() {
+        // Each param is the first element of its group
+        let param = match param_group.first() {
+            Some(p) => *p,
+            None => continue,
+        };
+        if !is_atom_like(param, source) {
+            let pos = param.start_position();
+            let text = source.get(param.byte_range()).unwrap_or("?").trim().to_string();
+            let range = range_from_point(pos, text.len());
+            diagnostics.push(Diagnostic {
+                range,
+                severity: Some(DiagnosticSeverity::ERROR),
+                message: format!("{} parameter #{} must be a symbol, got '{}'", fn_name, i + 1, text),
+                ..Default::default()
+            });
+        }
+    }
+}
+
+/// Extract the contents of a [...] bracketed list as groups of sub-sexprs
+/// For [a b c]: returns [[a], [b], [c]] (each atom is a separate group)
+/// For [[a 1] [b 2]]: returns [[a, 1], [b, 2]] (each inner pair is a group)
+/// Accepts either a list node or a sexpr wrapping a list node.
+fn get_bracket_contents<'a>(node: tree_sitter::Node<'a>) -> Vec<Vec<tree_sitter::Node<'a>>> {
+    // Unwrap sexpr → list if needed
+    let list_node = if node.kind() == "sexpr" {
+        let mut c = node.walk();
+        let result = node.children(&mut c).find(|ch| ch.kind() == "list");
+        result
+    } else if node.kind() == "list" {
+        Some(node)
+    } else {
+        None
+    };
+    let list_node = match list_node {
+        Some(n) => n,
+        None => return vec![],
+    };
+    
+    let inner = get_sub_sexprs(list_node);
+    
+    // Check if contents are nested brackets (e.g., [[a 1] [b 2]])
+    let has_nested = inner.iter().any(|s| {
+        let mut c = s.walk();
+        let result = s.children(&mut c).any(|ch| ch.kind() == "list");
+        result
+    });
+    
+    if has_nested {
+        // Each outer sexpr wraps a [...] list; extract its contents
+        inner.iter().map(|s| get_sub_sexprs(*s)).collect()
+    } else {
+        // Flat list; each element is its own group
+        inner.iter().map(|&s| vec![s]).collect()
+    }
+}
+
+/// Check if a node represents an atom-like value (symbol, number, string, bool, operator)
+fn is_atom_like(node: tree_sitter::Node, source: &str) -> bool {
+    let mut c = node.walk();
+    node.children(&mut c).any(|ch| {
+        matches!(ch.kind(), "atom" | "symbol" | "base_symbol" | "scoped_symbol" 
+            | "grouped_symbol" | "operator" | "int" | "float" | "string" | "bool")
+    }) || source.get(node.byte_range()).map_or(false, |s| {
+        let t = s.trim();
+        !t.starts_with('(') && !t.starts_with('[') && !t.starts_with('{')
+    })
 }

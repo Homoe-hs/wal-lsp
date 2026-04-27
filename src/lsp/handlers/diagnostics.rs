@@ -246,7 +246,7 @@ fn collect_semantic_errors(
         // Check if this is a top-level expression (parent is sexpr, grandparent is sexpr_list or program)
         let is_toplevel = node.parent().map_or(false, |p| {
             p.kind() == "sexpr" && p.parent().map_or(false, |gp| {
-                gp.kind() == "sexpr_list" || gp.kind() == "program"
+                gp.kind() == "program"
             })
         });
 

@@ -1,0 +1,105 @@
+;; ============================================================
+;; 17_integration.wal — Comprehensive integration test combining
+;;   multiple language features from the WAL documentation
+;; ============================================================
+
+;; === Part 1: Fibonacci (recursive function + cond) ===
+(defun fib [n]
+  (cond
+    [(= n 0) 0]
+    [(= n 1) 1]
+    [#t (+ (fib (- n 1)) (fib (- n 2)))]))
+
+;; === Part 2: Math utilities ===
+(defun square [x] (* x x))
+
+(defun cube [x] (* x (square x)))
+
+(defun average [a b] (/ (+ a b) 2))
+
+;; === Part 3: List processing pipeline ===
+(define numbers (list 1 2 3 4 5 6 7 8 9 10))
+
+;; Double all numbers
+(map (fn [x] (* x 2)) numbers)
+
+;; Filter with cond (all values)
+(map (fn [x]
+       (cond
+         [(<= x 3) "small"]
+         [(>= x 7) "large"]
+         [#t "medium"]))
+     numbers)
+
+;; Sum of squares
+(fold + 0 (map (fn [x] (square x)) numbers))
+
+;; Statistics
+(do
+  (define data (list 10 20 30 40 50))
+  (define n (length data))
+  (define total (sum data))
+  (define avg (average data))
+  (define mx (max data))
+  (define mn (min data))
+  (list n total avg mx mn))
+
+;; === Part 4: Array-based memoization ===
+(define memo (array))
+
+(defun memo-fib [n]
+  (cond
+    [(<= n 1) n]
+    [#t (let ([cached (geta/default memo -1 n)])
+          (if (>= cached 0)
+              cached
+              (let ([val (+ (memo-fib (- n 1)) (memo-fib (- n 2)))])
+                (seta memo n val)
+                val)))]))
+
+;; === Part 5: Higher-order functions ===
+(defun twice [f x] (f (f x)))
+(defun compose [f g] (fn [x] (f (g x))))
+
+(define double (fn [n] (* n 2)))
+(define inc (fn [n] (+ n 1)))
+
+;; twice(double)(5) = double(double(5)) = 20
+(twice double 5)
+
+;; compose(inc, double)(5) = inc(double(5)) = 11
+((compose inc double) 5)
+
+;; === Part 6: Type-checked processing ===
+(defun safe-process [x]
+  (cond
+    [(int? x) (+ x 10)]
+    [(string? x) (print "String received:" x)]
+    [(list? x) (length x)]
+    [#t "unknown"]))
+
+;; === Part 7: let with closures (capture pattern) ===
+(defun make-multiplier [factor]
+  (let ([f factor])
+    (fn [x] (* f x))))
+
+(define times3 (make-multiplier 3))
+(define times5 (make-multiplier 5))
+
+;; times3(4) = 12, times5(4) = 20
+(times3 4)
+(times5 4)
+
+;; === Part 8: Number format verification ===
+(do
+  (define dec-val 15)
+  (define hex-val 0xF)
+  (define bin-val 0b1111)
+  (and (= dec-val hex-val) (= dec-val bin-val)))
+
+;; === Part 9: Zip and unzip ===
+(zip (list 1 2 3) (list "a" "b" "c"))
+
+;; === Part 10: Combined quote/unquote ===
+`(list 1 ,(+ 1 1) 3)
+`(a b ,@(list 1 2) c)

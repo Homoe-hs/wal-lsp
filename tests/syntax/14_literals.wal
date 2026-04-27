@@ -1,0 +1,57 @@
+;; ============================================================
+;; 14_literals.wal — Test all literal forms
+;; ============================================================
+
+;; String literals
+"hello"
+"Hello, World!"
+""
+"escaped \"quote\""
+"numbers 123"
+"symbols + - * /"
+
+;; Boolean literals
+true
+false
+#t
+#f
+
+;; Integer literals
+42
+-1
+0
+
+;; Float literals
+3.14
+-0.5
+1.0
+
+;; Quoted as literal
+'hello
+'(1 2 3)
+
+;; List literal (via list function)
+(list 1 2 3)
+
+;; Array literal (via array function)
+(array ['x 10])
+
+;; Symbols
+my-variable
+another_var
+x
+y
+
+;; Symbols with special chars (from grammar: a-zA-Z_. prefix)
+test.variable
+foo.bar
+my_signal_name
+SOME_CONSTANT
+camelCaseVar
+with-dashes
+with/slashes
+
+;; Dotted signal names (common in waveform contexts)
+tb.clk
+tb.reset
+top.sub.signal

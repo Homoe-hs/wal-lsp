@@ -1,0 +1,44 @@
+;; ============================================================
+;; 13_scoped_symbols.wal — Test ~ (scoped) and # (grouped) symbols
+;; ============================================================
+
+;; Scoped symbol (~ prefix)
+(define ~clk 1)
+(define ~reset 0)
+
+;; Grouped symbol (# prefix)
+(define #valid 1)
+(define #ready 0)
+
+;; Scoped symbols in expressions
+(= ~clk 1)
+(&& ~valid ~ready)
+
+;; Grouped symbols in expressions
+(= #valid 1)
+(&& #ready #valid)
+
+;; CG — current group variable
+(define CG "top.sub_")
+
+;; resolve-group with # shorthand
+;; #name is shorthand for (resolve-group name)
+(print #valid)
+
+;; Mixed scoped and normal symbols
+(let ([sig ~data]
+      [sel #enable])
+  (&& sig sel))
+
+;; Scoped symbol as function arg
+(defun check-clk [~s]
+  (= ~s 1))
+
+;; Grouped symbol in condition
+(when #ready
+  (print "Ready signal active"))
+
+;; Combined use case (from docs pattern)
+#ready
+#valid
+~global_enable

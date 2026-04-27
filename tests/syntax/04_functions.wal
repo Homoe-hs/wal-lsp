@@ -1,0 +1,76 @@
+;; ============================================================
+;; 04_functions.wal — Test defun, fn, closures
+;; ============================================================
+
+;; defun with fixed args
+(defun add [a b] (+ a b))
+
+;; defun with named args (symbol list)
+(defun multiply [x y] (* x y))
+
+;; defun — single arg (not in brackets = variadic)
+(defun sum-all xs (fold + 0 xs))
+
+;; defun — variadic with list arg
+(defun my-list xs xs)
+
+;; fn — anonymous function
+((fn [a b] (+ a b)) 1 2)
+
+;; fn — no args
+((fn [] 42))
+
+;; fn — passed as argument
+(define apply-fn (fn [f x] (f x)))
+
+;; fn — returned from function
+(defun make-adder [n]
+  (fn [x] (+ x n)))
+
+(define add5 (make-adder 5))
+
+;; fn — curried
+(defun curried-add [a]
+  (fn [b] (+ a b)))
+
+(define add3 (curried-add 3))
+
+;; Closure: make-counter pattern
+(defun make-counter [name]
+  (define cnt 0)
+  (fn [] (do (set! cnt (+ cnt 1))
+            (print name ": " cnt))))
+
+(define cnt-a (make-counter "A"))
+(define cnt-b (make-counter "B"))
+
+;; Recursive function
+(defun fact [n]
+  (if (<= n 1)
+      1
+      (* n (fact (- n 1)))))
+
+;; defun — multi-expression body
+(defun greet [name]
+  (print "Hello," name "!")
+  (print "Welcome to WAL!"))
+
+;; defun — using fn internally
+(defun compose [f g]
+  (fn [x] (f (g x))))
+
+;; --- GARBLED ERRORS BELOW ---
+;; Error 10: unknown function
+(walppppper 1 2 3 4 5)
+
+;; Error 11: defun missing body
+(defun broken-fn [x])
+
+;; Error 12: fn with wrong arg structure (using parens instead of brackets)
+(fn (x y) (+ x y))
+
+;; Error 13: garbage identifier containing special chars
+(x@y!z#1)
+
+;; Error 14: define with wrong arity (0 args)
+(define)

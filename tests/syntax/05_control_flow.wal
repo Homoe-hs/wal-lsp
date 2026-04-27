@@ -1,0 +1,111 @@
+;; ============================================================
+;; 05_control_flow.wal — Test do, when, unless, if, cond, case
+;; ============================================================
+
+;; do — sequence evaluation
+(do
+  (define tmp 10)
+  (+ tmp 20))
+
+;; do — single expression
+(do 42)
+
+;; when — truthy condition
+(when #t
+  (print "This prints"))
+
+;; when — falsy condition
+(when #f
+  (print "This does NOT print"))
+
+;; unless — truthy condition
+(unless #t
+  (print "This does NOT print"))
+
+;; unless — falsy condition
+(unless #f
+  (print "This prints"))
+
+;; if — simple
+(if (> 5 3)
+    1
+    0)
+
+;; if — with do blocks for multiple expressions
+(if (&& #t #t)
+    (do (print "Option a")
+        (define result "a")
+        1)
+    (do (print "Option b")
+        (define result "b")
+        0))
+
+;; cond — multiple conditions
+(define test-value 42)
+(cond
+  [(< test-value 0) "negative"]
+  [(= test-value 0) "zero"]
+  [(> test-value 0) "positive"])
+
+;; cond — with default (#t always matches)
+(defun describe [n]
+  (cond
+    [(= n 0) "zero"]
+    [(= n 1) "one"]
+    [(= n 2) "two"]
+    [#t "other"]))
+
+;; cond — fibonacci
+(defun fib [n]
+  (cond
+    [(= n 1) 1]
+    [(= n 2) 1]
+    [#t (+ (fib (- n 1)) (fib (- n 2)))]))
+
+;; case — multiple values with default
+(case (+ 1 2)
+  [1 "one"]
+  [2 "two"]
+  [3 "three"]
+  [default "big"])
+
+;; case — with string values
+(case "hello"
+  ["hi" "greeting"]
+  ["bye" "farewell"]
+  [default "unknown"])
+
+;; Nested control flow
+(if (> 10 5)
+    (when #t
+      (do (print "nested when")
+          42))
+    0)
+
+;; when with 0 (falsy equivalent)
+(when 0 (print "no output"))
+
+;; unless with 1 (truthy equivalent)
+(unless 1 (print "no output"))
+
+;; --- GARBLED ERRORS BELOW ---
+;; Error 15: mismatched bracket — [ used instead of )
+(when #t
+  [print "wrong bracket"])
+
+;; Error 16: if with wrong arity (4 args)
+(if #t 1 0 extra)
+
+;; Error 17: case with malformed clause (missing brackets)
+(case (+ 1 2)
+  1 "one"
+  2 "two")
+
+;; Error 18: cond without closing bracket
+(cond
+  [(= n 1) 1
+  [#t 0)
+
+;; Error 19: invalid token in expression
+(do 1 2 3 @@@@)
+

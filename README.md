@@ -163,7 +163,7 @@ The server communicates via JSON-RPC 2.0 over stdin/stdout using the LSP protoco
 
 ```bash
 # Initialize
-printf 'Content-Length: 108\r\n\r\n{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}' \
+printf 'Content-Length: 75\r\n\r\n{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}' \
   | wal-lsp
 ```
 

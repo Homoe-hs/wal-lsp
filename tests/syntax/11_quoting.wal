@@ -1,0 +1,49 @@
+;; ============================================================
+;; 11_quoting.wal — Test quote, quasiquote, unquote, unquote-splice
+;; ============================================================
+
+;; quote — using function form
+(quote (+ 1 2))
+(quote hello)
+(quote (1 2 3))
+
+;; ' — shorthand for quote
+'(+ 1 2)
+'hello
+'(1 2 3 4 5)
+'(a b c)
+
+;; quasiquote — using function form
+(quasiquote (+ 1 2))
+(quasiquote (list 1 2))
+
+;; ` — shorthand for quasiquote
+`(+ 1 2)
+`(1 2 3)
+
+;; unquote — using function form
+(quasiquote (list 1 (unquote (+ 1 1))))
+
+;; , — shorthand for unquote (inside quasiquote)
+`(list 1 ,(+ 1 1))
+`(a ,(+ 1 2) c)
+
+;; unquote-splice — using function form
+(quasiquote (list (unquote-splice '(1 2))))
+
+;; ,@ — shorthand for unquote-splice
+`(list ,@'(1 2 3))
+`(begin ,@(list 1 2 3))
+
+;; Quote with lists
+'(1 "string" #t symbol)
+
+;; Nested quoting
+`(list `(inner ,(+ 1 1)))
+
+;; Quote in function context
+(define quoted-list '(1 2 3))
+(first quoted-list)
+
+;; Unquote in nested context
+`(outer `(inner ,1))

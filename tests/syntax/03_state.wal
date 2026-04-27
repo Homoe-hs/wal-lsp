@@ -1,0 +1,50 @@
+;; ============================================================
+;; 03_state.wal — Test let, define, set!
+;; ============================================================
+
+;; define
+(define x 10)
+(define y (+ x 20))
+(define greeting "Hello, WAL!")
+(define flag true)
+
+;; let — simple
+(let ([a 1])
+  (+ a 10))
+
+;; let — multiple bindings
+(let ([a 10]
+      [b 20])
+  (+ a b))
+
+;; let — chained bindings (later uses earlier)
+(let ([x 10]
+      [y x])
+  (+ x y))
+
+;; let — with expressions
+(let ([sum (+ 1 2 3)]
+      [product (* 4 5)])
+  (+ sum product))
+
+;; let — nested
+(let ([outer 100])
+  (let ([inner (+ outer 50)])
+    (* inner 2)))
+
+;; set! — update existing binding
+(define counter 0)
+(set! counter (+ counter 1))
+(set! counter 5)
+
+;; define + set! interaction
+(define z 42)
+(set! z (+ z 8))
+
+;; define function value
+(define double (fn [n] (* n 2)))
+
+;; Multiple defines
+(define a 1)
+(define b 2)
+(define c (+ a b))

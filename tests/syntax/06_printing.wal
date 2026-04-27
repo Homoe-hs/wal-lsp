@@ -1,0 +1,35 @@
+;; ============================================================
+;; 06_printing.wal — Test print and printf
+;; ============================================================
+
+;; print — single arg
+(print "Hello, World!")
+
+;; print — multiple args
+(print "The answer is" 42)
+
+;; print — mixed types
+(print "String:" "test" "Int:" 42 "Float:" 3.14 "Bool:" #t)
+
+;; print — expression
+(print (+ 1 2 3))
+
+;; printf — simple
+(printf "%d" 42)
+
+;; printf — multiple values
+(printf "%d + %d = %d" 2 3 (+ 2 3))
+
+;; printf — string formatting
+(printf "Hello, %s!" "WAL")
+
+;; printf — float formatting
+(printf "Pi ≈ %.2f" 3.14159)
+
+;; printf — multiple types
+(printf "Name: %s, Age: %d, Active: %d" "Alice" 42 1)
+
+;; print with variables
+(define name "WAL")
+(define version 0.8)
+(print name "v" version)

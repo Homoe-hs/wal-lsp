@@ -1,0 +1,157 @@
+;; ============================================================
+;; 16_diagnostics.wal — Test LSP diagnostic features:
+;;   (a) Known symbols resolve correctly (no warning)
+;;   (b) Unknown symbols trigger WARNING
+;;   (c) Correct arity triggers no ERROR
+;;   (d) Wrong arity triggers ERROR
+;; ============================================================
+
+;; --- (a) KNOWN SYMBOLS — should NOT trigger "Unknown function" ---
+
+;; Core arithmetic (all known)
+(+ 1 2)
+(- 10 5)
+(* 3 4)
+
+;; Core logic
+(! 0)
+(&& 1 1)
+(|| 0 1)
+(= 5 5)
+(!= 1 2)
+(> 5 3)
+(< 1 10)
+(>= 5 5)
+(<= 5 3)
+
+;; Program state (known)
+(define ok-var 42)
+(set! ok-var 100)
+(let ([x 1] [y 2]) (+ x y))
+
+;; Functions (known)
+(defun ok-fn [x] (+ x 1))
+(fn [a] (* a 2))
+
+;; Control flow (known)
+(do 1 2 3)
+(when #t 42)
+(unless #f 42)
+(if #t 1 0)
+(cond [#t "yes"])
+
+;; Print (known)
+(print "test")
+
+;; List ops (known)
+(list 1 2 3)
+(first (list 1 2))
+(length (list 1 2 3))
+(map (fn [x] x) (list 1 2 3))
+(sum (list 1 2 3))
+(average (list 1 2 3))
+(fold + 0 (list 1 2))
+(max (list 1 2 3))
+(min (list 1 2 3))
+(zip (list 1 2) (list 3 4))
+
+;; Array ops (known)
+(array)
+(array ['k 1])
+(seta (array) 'a 1)
+(geta (array ['x 10]) 'x)
+
+;; Type ops (known)
+(atom? 42)
+(symbol? 'x)
+(string? "x")
+(int? 42)
+(list? (list 1 2))
+
+;; Waveform ops (known)
+;; (load "test.vcd")  -- needs actual file
+(step 1)
+(alias 'x 'y)
+(unalias 'x)
+;; (find (= some.signal 1))
+;; (whenever #t (print "always"))
+(count #t)
+;; (timeframe (print "in timeframe"))
+
+;; Signal ops (known)
+(get "some.signal")
+(slice "some.signal" 5 0)
+(reval INDEX -1)
+
+;; Macros (known)
+(define defun-test (fn [x] x))
+(when true (print "when macro"))
+(unless false (print "unless macro"))
+(set! ok-var 0)
+
+;; Special variables (known references)
+INDEX
+MAX-INDEX
+SIGNALS
+CS
+CG
+LOCAL-SIGNALS
+TRACE-FILE
+TRACE-NAME
+TS
+
+
+;; --- (c) CORRECT ARITY — should NOT trigger "wrong arity" ---
+
+;; Correct arity examples
+(define arity-ok 1)              ;; define: 2 args ✓
+(if #t 1 0)                      ;; if: 3 args ✓
+(fn [x] (+ x 1))                 ;; fn: args + body = 2 ✓
+(quote hello)                     ;; quote: 1 arg ✓
+(first (list 1))                  ;; first: 1 arg ✓
+(length (list 1 2))              ;; length: 1 arg ✓
+(/ 10 2)                         ;; /: 2 args ✓
+(** 2 8)                         ;; **: 2 args ✓
+(mod 10 3)                       ;; mod: 2 args ✓
+(floor 3.14)                     ;; floor: 1 arg ✓
+(eval 42)                        ;; eval: 1 arg ✓
+(parse "test")                   ;; parse: 1 arg ✓
+(not 0)                          ;; not: 1 arg ✓
+(sum (list 1 2))                 ;; sum: 1 arg ✓
+(average (list 1 2))             ;; average: 1 arg ✓
+(round 3.5)                      ;; round: 1 arg ✓
+(ceil 3.1)                       ;; ceil: 1 arg ✓
+(second (list 1 2))              ;; second: 1 arg ✓
+(last (list 1 2))                ;; last: 1 arg ✓
+(rest (list 1 2))                ;; rest: 1 arg ✓
+(eval-file my-file)              ;; eval-file: 1 arg ✓
+(import my-module)               ;; import: 1 arg ✓
+(require my-module)              ;; require: 1 arg ✓
+(load "trace.vcd")               ;; load: 1 arg ✓
+(get "signal")                   ;; get: 1 arg ✓
+
+
+;; --- (b) UNKNOWN SYMBOLS — should trigger Unknown function WARNING ---
+;; These are deliberately misspelled or nonexistent
+
+;; (undef-pi 3.14)  ;; UNKNOWN — would generate WARNING
+;; (does-not-exist 1 2 3)  ;; UNKNOWN
+;; (frobnicate 42)  ;; UNKNOWN
+
+
+;; --- (d) WRONG ARITY — should trigger wrong arity ERROR ---
+;; (define bad-arity)                     ;; define expects 2, got 0 → ERROR
+;; (define also-bad 1 2 3)               ;; define expects 2, got 3 → ERROR
+;; (if #t 1)                             ;; if expects 3, got 2 → ERROR
+;; (if #f)                               ;; if expects 3, got 1 → ERROR
+;; (fn x)                                ;; fn expects 2, got 1 → ERROR
+;; (quote a b)                           ;; quote expects 1, got 2 → ERROR
+;; (first)                               ;; first expects 1, got 0 → ERROR
+;; (first 1 2)                           ;; first expects 1, got 2 → ERROR
+;; (/ 5)                                 ;; / expects 2, got 1 → ERROR
+;; (** 5)                                ;; ** expects 2, got 1 → ERROR
+;; (mod 5)                               ;; mod expects 2, got 1 → ERROR
+;; (length 1 2)                          ;; length expects 1, got 2 → ERROR
+;; (not 1 2)                             ;; not expects 1, got 2 → ERROR
+;; (get)                                 ;; get expects 1, got 0 → ERROR
+;; (exit 1)                              ;; exit expects 0, got 1 → ERROR

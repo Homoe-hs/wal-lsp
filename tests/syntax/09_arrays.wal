@@ -1,0 +1,73 @@
+;; ============================================================
+;; 09_arrays.wal — Test all array functions
+;; ============================================================
+
+;; array — construction
+(array)
+(array ['x 10] ['y 20])
+(array ['a 1] ['b 2] ['c 3])
+(array [5 5])
+(array ["key" "value"])
+
+;; array — with expressions
+(array ['sum (+ 1 2)] ['product (* 3 4)])
+
+;; seta — insert/update
+(seta (array) 'x 10)
+(seta (array ['x 10]) 'y 20)
+
+;; seta — with non-symbol key
+(seta (array ['x 10]) "name" 42)
+(seta (array) 0 (list "test" "data"))
+
+;; geta — retrieve
+(geta (array ['x 10]) 'x)
+(geta (array ['a 1] ['b 2]) 'a)
+
+;; geta — with variable as key
+(define idx 0)
+(geta (array ['i 0] [5 "test"]) idx)
+
+;; geta/default — with key present
+(geta/default (array ['x 10]) 5 'x)
+
+;; geta/default — with key absent (returns default)
+(geta/default (array ['x 10]) 5 'y)
+(geta/default (array ['a 1]) "not found" 'z)
+
+;; dela — remove entry
+(dela (array ['x 10] ['y 20]) 'x)
+
+;; mapa — map over array key-value pairs
+(mapa (fn [k v] (list k v)) (array ['x 10] ['y 20]))
+
+;; mapa — with expressions
+(define my-arr (array ['a 1] ['b 2] ['c 3]))
+(mapa (fn [k v] (* v 2)) my-arr)
+
+;; Nested array in array value
+(seta (array) 'nested (array ['inner 42]))
+
+;; Chained array operations
+(define arr (array ['count 0]))
+(seta arr 'count (+ (geta arr 'count) 1))
+(geta/default arr -1 'missing)
+
+;; Mixed key types
+(seta (seta (array) 'name "Alice") 'age 30)
+
+;; --- GARBLED ERRORS BELOW ---
+;; Error 25: unknown array function
+(array-push (array) 'x 10)
+
+;; Error 26: geta with wrong arity (1 arg)
+(geta (array ['x 10]))
+
+;; Error 27: seta with wrong arity (2 args)
+(seta (array) 'k)
+
+;; Error 28: array literal with broken syntax (missing quote)
+(array [x 10])
+
+;; Error 29: mismatched braces — ] instead of }
+(array ["key" 42])

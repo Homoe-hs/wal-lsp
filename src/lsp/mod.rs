@@ -14,9 +14,13 @@ pub fn run() -> Result<()> {
 
     info!("WAL LSP server starting...");
 
-    let (id, init_params) = connection
-        .initialize_start()
-        .map_err(|e| anyhow::anyhow!("Failed to initialize: {}", e))?;
+    let (id, init_params) = match connection.initialize_start() {
+        Ok(v) => v,
+        Err(e) => {
+            error!("Initialization failed: {}. Ensure correct LSP Content-Length header.", e);
+            return Err(anyhow::anyhow!("Failed to initialize: {}", e));
+        }
+    };
 
     info!("Init params: {:?}", init_params);
 
@@ -48,7 +52,13 @@ pub fn run() -> Result<()> {
     info!("LSP server initialized");
 
     loop {
-        let msg = connection.receiver.recv()?;
+        let msg = match connection.receiver.recv() {
+            Ok(m) => m,
+            Err(e) => {
+                error!("Receiver error: {}", e);
+                break;
+            }
+        };
         match msg {
             Message::Request(req) => {
                 info!("Received request: {:?}", req.method);

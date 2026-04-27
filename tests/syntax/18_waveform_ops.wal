@@ -1,0 +1,51 @@
+;; ============================================================
+;; 18_waveform_ops.wal — Test waveform handling functions
+;;   (load, unload, step, alias, unalias, whenever, find, count, timeframe)
+;;   Note: These are syntax-only tests; actual execution needs waveform files
+;; ============================================================
+
+;; load — load waveform file (with optional id)
+;; (load "trace.vcd")
+;; (load "trace.fst" my-trace-id)
+
+;; unload — remove waveform
+;; (unload my-trace-id)
+
+;; step — advance time index
+(step 1)
+(step -1)
+(step 10)
+
+;; alias / unalias — create and remove signal aliases
+(alias 'myclk 'tb.clk)
+(alias 'myrst 'tb.reset)
+(unalias 'myclk)
+
+;; whenever — evaluate body at each index where cond is true
+;; (whenever (= tb.overflow 1) (print INDEX))
+
+;; find — find all indices where cond is true
+;; (find (= tb.clk 1))
+
+;; count — count indices where cond is true
+;; (count (= tb.clk 1))
+
+;; timeframe — save/restore INDEX around body
+;; (timeframe
+;;   (while (! ready) (step))
+;;   (print INDEX))
+
+;; Special waveform variables (syntax reference)
+INDEX
+MAX-INDEX
+SIGNALS
+TRACE-FILE
+TRACE-NAME
+
+;; Step with conditional
+(when (> MAX-INDEX 100)
+  (step 50))
+
+;; Alias in control flow
+(when (&& #valid #ready)
+  (alias 'handshake-signal #valid))

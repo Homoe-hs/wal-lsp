@@ -15,6 +15,3 @@ Cargo.lock
 
 # Memory/search index
 .memsearch/
-
-# Reference project (not part of this repo)
-tcl-lsp/

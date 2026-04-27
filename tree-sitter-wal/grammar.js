@@ -18,7 +18,7 @@ module.exports = grammar({
       $.timed_atom,
     ),
 
-    timed_atom: $ => seq($.atom, "@", $.atom),
+    timed_atom: $ => seq($.atom, "@", choice($.atom, $.list)),
 
     quoted: $ => seq("'", $.sexpr),
     quasiquoted: $ => seq("`", $.sexpr),

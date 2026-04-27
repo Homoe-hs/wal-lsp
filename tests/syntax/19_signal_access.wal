@@ -24,9 +24,10 @@ tb.clk@-1
 INDEX@5
 INDEX@3
 
-;; @ with integer literals
-INDEX@10
-tb.data@4
+;; @ with expressions (list offset)
+INDEX@(+ 2 2)
+INDEX@(- 2)
+tb.data@(get tb.offset)
 
 ;; Combined pattern: signal access in conditionals
 (when (> (reval tb.clk -1) 0)

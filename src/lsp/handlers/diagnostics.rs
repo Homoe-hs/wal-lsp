@@ -90,19 +90,41 @@ static KNOWN_SYMBOLS: Lazy<HashSet<&'static str>> = Lazy::new(|| {
 /// Known symbol arities: (name, arg_count)
 static KNOWN_ARITIES: Lazy<Vec<(&'static str, usize)>> = Lazy::new(|| {
     vec![
+        // State
         ("define", 2), ("set", 2), ("set!", 2),
-        ("if", 3), ("fn", 2),
+        // Control flow
+        ("if", 3),
+        ("fn", 2),
         ("defmacro", 3),
+        // Math
         ("/", 2), ("**", 2), ("mod", 2),
+        ("floor", 1), ("ceil", 1), ("round", 1),
+        // Quote
         ("quote", 1), ("quasiquote", 1), ("unquote", 1),
         ("eval", 1), ("parse", 1),
+        // List — accessors
         ("first", 1), ("second", 1), ("last", 1), ("rest", 1),
         ("length", 1), ("average", 1), ("sum", 1),
-        ("floor", 1), ("ceil", 1), ("round", 1),
+        // List — transform
+        ("map", 2), ("fold", 3), ("zip", 2),
+        ("max", 1), ("min", 1),
+        ("in", 2),
+        // Array
+        ("seta", 3), ("geta", 2), ("dela", 2), ("mapa", 2),
+        ("geta/default", 3),
+        // Type
         ("not", 1),
-        ("exit", 0),
-        ("import", 1), ("require", 1), ("eval-file", 1), ("load", 1),
-        ("get", 1),
+        ("atom?", 1), ("symbol?", 1), ("string?", 1), ("int?", 1), ("list?", 1),
+        ("convert/bin", 2),
+        // IO
+        ("exit", 1),
+        ("import", 1), ("require", 1), ("eval-file", 1),
+        ("load", 1), ("unload", 1),
+        // Signal
+        ("get", 1), ("slice", 3), ("reval", 2),
+        // Waveform
+        ("step", 1), ("alias", 2), ("unalias", 1),
+        ("find", 1), ("count", 1),
     ]
 });
 

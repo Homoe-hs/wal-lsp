@@ -25,15 +25,10 @@ use tracing::info;
                   Neovim: add to lspconfig with cmd = {'wal-lsp'}\n  \
                   Helix: add to languages.toml with command = 'wal-lsp'"
 )]
-struct Cli {
-    /// No-op flag for LSP mode (only mode supported)
-    #[arg(long, default_value_t = false, help = "Start in LSP mode (default)")]
-    #[allow(dead_code)]
-    lsp: bool,
-}
+struct Cli;
 
 fn main() -> Result<()> {
-    let _cli = Cli::parse();
+    let _ = Cli::parse();
 
     tracing_subscriber::fmt::init();
 

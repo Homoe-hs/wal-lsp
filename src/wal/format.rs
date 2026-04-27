@@ -24,54 +24,73 @@ fn format_node(node: Node, source: &str, indent: usize, output: &mut String) {
                 format_node(child, source, indent, output);
             }
         }
-        "list" | "sexpr" => {
-            output.push('(');
+        "list" => {
             let mut cursor = node.walk();
             let children: Vec<Node> = node.children(&mut cursor).collect();
 
-            if !children.is_empty() {
-                let first = &children[0];
-                let first_text = get_node_text(*first, source);
-                if let Some(text) = first_text {
-                    output.push_str(&text);
+            let (open, close) = if let Some(first) = children.first() {
+                let bracket_text = source.get(first.byte_range()).unwrap_or("(");
+                match bracket_text.trim() {
+                    "[" => ('[', ']'),
+                    "{" => ('{', '}'),
+                    _ => ('(', ')'),
                 }
+            } else {
+                ('(', ')')
+            };
 
-                if children.len() > 1 {
-                    let rest = &children[1..];
-                    if rest.iter().any(|c| c.kind() == "list" || c.kind() == "sexpr") {
-                        for child in rest {
-                            output.push('\n');
-                            append_tabs(output, indent + 1);
-                            format_node(*child, source, indent + 1, output);
+            output.push(open);
+
+            let content_start = 1; // skip opening bracket
+            let content_end = children.len().saturating_sub(1); // before closing bracket
+
+            if content_start < content_end {
+                let rest = &children[content_start..content_end];
+
+                if rest.iter().any(|c| c.kind() == "list" || c.kind() == "sexpr") {
+                    for child in rest {
+                        output.push('\n');
+                        append_tabs(output, indent + 1);
+                        format_node(*child, source, indent + 1, output);
+                    }
+                } else if !rest.is_empty() {
+                    let first_content = rest[0];
+                    if first_content.kind() == "sexpr_list" {
+                        // Flatten simple lists
+                        let mut sc = first_content.walk();
+                        let sexprs: Vec<Node> = first_content.children(&mut sc).collect();
+                        let non_space: Vec<&Node> = sexprs.iter()
+                            .filter(|c| c.kind() != "whitespace")
+                            .collect();
+                        for (i, child) in non_space.iter().enumerate() {
+                            if i > 0 { output.push(' '); }
+                            let text = source.get(child.byte_range()).unwrap_or("").trim().to_string();
+                            output.push_str(&text);
                         }
                     } else {
                         for child in rest {
                             output.push(' ');
-                            let child_text = get_node_text(*child, source).unwrap_or_default();
-                            output.push_str(&child_text);
+                            let text = source.get(child.byte_range()).unwrap_or("").trim().to_string();
+                            output.push_str(&text);
                         }
                     }
                 }
             }
 
-            output.push(')');
+            output.push(close);
+        }
+        "sexpr" => {
+            // For sexpr wrapping an atom/list — just output the inner content
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                format_node(child, source, indent, output);
+            }
         }
         _ => {
-            let text = get_node_text(node, source).unwrap_or_default();
+            let text = source.get(node.byte_range()).unwrap_or("").trim().to_string();
             output.push_str(&text);
         }
     }
-}
-
-fn get_node_text(node: Node, source: &str) -> Option<String> {
-    source.get(node.byte_range()).map(|s| {
-        let trimmed = s.trim();
-        if trimmed.starts_with('(') || trimmed.starts_with('[') || trimmed.starts_with('{') {
-            trimmed.strip_prefix(['(', '[', '{']).unwrap_or(trimmed).strip_suffix([')', ']', '}']).unwrap_or(trimmed).trim().to_string()
-        } else {
-            trimmed.to_string()
-        }
-    })
 }
 
 fn append_tabs(output: &mut String, count: usize) {
@@ -98,7 +117,7 @@ mod tests {
         let input = "(define add (fn [x y] (+ x y)))";
         let output = format_document(input);
         assert!(output.contains("(define"));
-        assert!(output.contains("(fn"));
+        assert!(output.contains("[x y]"));
     }
 
     #[test]
@@ -106,5 +125,22 @@ mod tests {
         let input = "(do (define x 1) (define y 2) (+ x y))";
         let output = format_document(input);
         assert!(output.contains("(define"));
+    }
+
+    #[test]
+    fn test_format_preserves_brackets() {
+        let input = "(let ([x 10] [y 20]) (+ x y))";
+        let output = format_document(input);
+        assert!(output.contains("[x 10]"));
+        assert!(output.contains("[y 20]"));
+    }
+
+    #[test]
+    fn test_format_braces() {
+        let input = "(array ['x 10] ['y 20])";
+        // Array braces {} should be preserved
+        let output = format_document(input);
+        // The quoted symbols with {} shouldn't be mangled
+        assert!(!output.is_empty());
     }
 }

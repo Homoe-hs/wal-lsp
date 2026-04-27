@@ -144,14 +144,14 @@ impl Workspace {
         }
 
         let ch = line_str[start..end].chars().next()?;
-        if !ch.is_alphanumeric() && ch != '_' && ch != '-' && ch != '.' && ch != '/' {
+        if !ch.is_alphanumeric() && ch != '_' && ch != '-' && ch != '.' && ch != '/' && ch != '#' && ch != '~' {
             return None;
         }
 
         let mut s = start;
         while s > 0 {
             let prev = line_str[s - 1..s].chars().next()?;
-            if prev.is_alphanumeric() || prev == '_' || prev == '-' || prev == '.' || prev == '/' {
+            if prev.is_alphanumeric() || prev == '_' || prev == '-' || prev == '.' || prev == '/' || prev == '#' || prev == '~' {
                 s -= 1;
             } else {
                 break;
@@ -161,7 +161,7 @@ impl Workspace {
         let mut e = end;
         while e < line_str.len() {
             let next = line_str[e..e + 1].chars().next()?;
-            if next.is_alphanumeric() || next == '_' || next == '-' || next == '.' || next == '/' {
+            if next.is_alphanumeric() || next == '_' || next == '-' || next == '.' || next == '/' || next == '#' || next == '~' {
                 e += 1;
             } else {
                 break;

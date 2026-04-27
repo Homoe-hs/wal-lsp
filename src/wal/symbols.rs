@@ -14,7 +14,11 @@ pub struct WalSymbol {
 #[allow(dead_code)]
 pub fn extract_symbols(source: &str) -> Vec<WalSymbol> {
     let tree = crate::wal::parser::WalParser::new().parse_with_errors(source);
-    let root = tree.root_node();
+    extract_symbols_from_node(tree.root_node(), source)
+}
+
+#[allow(dead_code)]
+pub fn extract_symbols_from_node(root: tree_sitter::Node, source: &str) -> Vec<WalSymbol> {
     let mut symbols = Vec::new();
     extract_symbols_recursive(root, source, &mut symbols);
     symbols

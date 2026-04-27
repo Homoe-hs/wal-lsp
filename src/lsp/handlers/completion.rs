@@ -12,8 +12,23 @@ pub fn handle(connection: &Connection, req: Request) -> Result<()> {
 
     info!("Completion requested for {:?} at {:?}", uri, position);
 
+    let prefix = {
+        let ws = WORKSPACE.read().unwrap_or_else(|e| e.into_inner());
+        ws.get_document(&uri)
+            .map(|doc| {
+                let lines: Vec<&str> = doc.text.lines().collect();
+                if let Some(line) = lines.get(position.line as usize) {
+                    extract_prefix(line, position.character as usize)
+                } else {
+                    String::new()
+                }
+            })
+            .unwrap_or_default()
+    };
+
     let mut items: Vec<CompletionItem> = get_all_completions()
         .into_iter()
+        .filter(|c| prefix.is_empty() || c.label.starts_with(&prefix))
         .map(|c| CompletionItem {
             label: c.label,
             kind: Some(match c.kind {
@@ -80,6 +95,20 @@ fn get_signal_completions(uri: &lsp_types::Uri, position: lsp_types::Position) -
             })
             .collect(),
     )
+}
+
+fn extract_prefix(line: &str, cursor_col: usize) -> String {
+    let before = &line[..cursor_col.min(line.len())];
+    let mut end = before.len();
+    while end > 0 {
+        let ch = before[..end].chars().last().unwrap();
+        if ch.is_alphanumeric() || "+-*/=!><.%?_|&^~#".contains(ch) {
+            end -= ch.len_utf8();
+        } else {
+            break;
+        }
+    }
+    before[end..].to_string()
 }
 
 fn extract_signal_prefix(line: &str, cursor_pos: usize) -> String {

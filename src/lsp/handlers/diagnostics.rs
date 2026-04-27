@@ -1,6 +1,6 @@
 use crate::lsp::WORKSPACE;
 use crate::wal::parser::WalParser;
-use crate::wal::symbols::extract_symbols;
+use crate::wal::symbols::extract_symbols_from_node;
 use anyhow::Result;
 use lsp_server::{Connection, Notification};
 use lsp_types::{Diagnostic, DiagnosticSeverity, PublishDiagnosticsParams, Position, Range};
@@ -209,7 +209,8 @@ fn analyze_document(text: &str) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
     // 0. Extract user-defined symbols (define/defun/defsig/defmacro) for skip-list
-    let user_symbols: HashSet<String> = extract_symbols(text)
+    //    Use the already-parsed tree to avoid re-parsing
+    let user_symbols: HashSet<String> = extract_symbols_from_node(tree.root_node(), text)
         .into_iter()
         .map(|s| s.name)
         .collect();
@@ -414,7 +415,7 @@ fn validate_form_structure(
 ) {
     match fn_name {
         "let" => validate_let_form(sub_sexprs, fn_pos, source, diagnostics),
-        "case" => validate_case_form(sub_sexprs, fn_pos, diagnostics),
+        "case" => validate_case_form(sub_sexprs, fn_pos, source, diagnostics),
         "defun" | "fn" => validate_fn_params(sub_sexprs, fn_name, source, diagnostics),
         _ => {}
     }
@@ -440,6 +441,18 @@ fn validate_let_form(
     // First sub-sexpr after "let" should be the binding list [...]
     let binding_node = sub_sexprs[1];
     let bindings = get_bracket_contents(binding_node);
+    
+    if bindings.is_empty() {
+        let pos = binding_node.start_position();
+        let range = range_from_point(pos, 1);
+        diagnostics.push(Diagnostic {
+            range,
+            severity: Some(DiagnosticSeverity::ERROR),
+            message: "let expects a binding list in brackets [...]".to_string(),
+            ..Default::default()
+        });
+        return;
+    }
     
     for (i, binding) in bindings.iter().enumerate() {
         // Each binding [id expr] must have at least 2 elements
@@ -473,6 +486,7 @@ fn validate_let_form(
 fn validate_case_form(
     sub_sexprs: &[tree_sitter::Node],
     fn_pos: &tree_sitter::Point,
+    source: &str,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     // Clauses start from sub_sexprs[1] onward (after "case" and the key)
@@ -486,6 +500,7 @@ fn validate_case_form(
         });
         return;
     }
+    let mut seen_default = false;
     for (i, clause) in sub_sexprs.iter().enumerate().skip(2) {
         let contents = get_bracket_contents(*clause);
         if contents.is_empty() {
@@ -495,6 +510,24 @@ fn validate_case_form(
                 range,
                 severity: Some(DiagnosticSeverity::ERROR),
                 message: format!("case clause #{} is empty", i - 1),
+                ..Default::default()
+            });
+            continue;
+        }
+        // Check if this is the default clause
+        let first_text = contents.first().and_then(|c| c.first())
+            .and_then(|n| source.get(n.byte_range()).map(|s| s.trim().to_string()));
+        if first_text.as_deref() == Some("default") {
+            seen_default = true;
+        }
+        // Warn about dead code after default clause
+        if seen_default && first_text.as_deref() != Some("default") {
+            let pos = clause.start_position();
+            let range = range_from_point(pos, 1);
+            diagnostics.push(Diagnostic {
+                range,
+                severity: Some(DiagnosticSeverity::WARNING),
+                message: format!("case clause #{} is unreachable (after default)", i - 1),
                 ..Default::default()
             });
         }
@@ -513,6 +546,12 @@ fn validate_fn_params(
     }
     let params_node = sub_sexprs[1];
     let params = get_bracket_contents(params_node);
+    
+    if params.is_empty() {
+        // Variadic defun without brackets: (defun name single-param body)
+        // The single param should be a valid atom
+        return;
+    }
     
     for (i, param_group) in params.iter().enumerate() {
         // Each param is the first element of its group

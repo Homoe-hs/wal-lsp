@@ -15,3 +15,5 @@ Cargo.lock
 
 # Memory/search index
 .memsearch/
+docs/
+tests/syntax/

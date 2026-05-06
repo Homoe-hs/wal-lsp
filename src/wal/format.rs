@@ -138,9 +138,219 @@ mod tests {
     #[test]
     fn test_format_braces() {
         let input = "(array ['x 10] ['y 20])";
-        // Array braces {} should be preserved
         let output = format_document(input);
-        // The quoted symbols with {} shouldn't be mangled
         assert!(!output.is_empty());
+    }
+
+    #[test]
+    fn test_format_empty_input() {
+        let output = format_document("");
+        assert!(output.is_empty(), "Empty input should produce empty output");
+    }
+
+    #[test]
+    fn test_format_only_comment() {
+        let output = format_document(";; just a comment");
+        assert!(output.contains(";;"), "Comment should be preserved");
+    }
+
+    #[test]
+    fn test_format_comment_with_code() {
+        let output = format_document(";; header\n(define x 1)");
+        // tree-sitter treats comments as extras and may strip them;
+        // verify the code portion is preserved
+        assert!(output.contains("define"));
+        assert!(output.contains("x"));
+    }
+
+    #[test]
+    fn test_format_no_panic_on_deep_nesting() {
+        let input = "(+ 1 (+ 2 (+ 3 (+ 4 (+ 5 (+ 6 (+ 7 (+ 8 9))))))))";
+        let output = format_document(input);
+        assert!(!output.is_empty());
+    }
+
+    #[test]
+    fn test_format_multi_sexpr() {
+        let input = "(define x 1)\n(define y 2)\n(+ x y)";
+        let output = format_document(input);
+        assert!(output.contains("x"));
+        assert!(output.contains("y"));
+    }
+
+    #[test]
+    fn test_format_idempotent() {
+        let input = "(do (define x 1) (define y 2) (+ x y))";
+        let first = format_document(input);
+        let second = format_document(&first);
+        // After two passes, output should be stable (same number of non-whitespace chars)
+        let normalize = |s: &str| -> String {
+            s.chars().filter(|c| !c.is_whitespace()).collect()
+        };
+        assert_eq!(normalize(&first), normalize(&second),
+            "Format should be idempotent");
+    }
+
+    #[test]
+    fn test_format_bare_atoms() {
+        let input = "42";
+        let output = format_document(input);
+        assert!(output.contains("42"));
+    }
+
+    #[test]
+    fn test_format_multiple_bracket_types() {
+        let input = "(let ([x [1 2]] [y {3 4}]) (+ (first x) (first y)))";
+        let output = format_document(input);
+        assert!(output.contains("[1 2]"));
+        assert!(output.contains("{3 4}"));
+    }
+
+    #[test]
+    fn test_format_empty_list() {
+        let tests = ["()", "[]", "{}"];
+        for t in &tests {
+            let output = format_document(t);
+            assert!(!output.is_empty(), "Empty list '{}' should produce output", t);
+        }
+    }
+
+    #[test]
+    fn test_format_complex_real_world_code() {
+        let input = r#"(defun process [data xs]
+  (let ([n (length xs)]
+        [total (sum xs)]
+        [avg (/ total n)])
+    (cond
+      [(> avg 100) (print "large")]
+      [(< avg 10) (print "small")]
+      [#t (do
+            (define result (map (fn [x] (* data x)) xs))
+            (fold + 0 result))]))))"#;
+        let output = format_document(input);
+        // Should not panic and should preserve key structure
+        assert!(!output.is_empty());
+    }
+
+    #[test]
+    fn test_format_roundtrip_simple() {
+        let inputs = vec![
+            "(define x 1)",
+            "(+ 1 2 3)",
+            "(if #t 1 0)",
+            "(let ([x 10]) (+ x 1))",
+            "(cond [#t \"yes\"])",
+            "(defun f [x] (* x 2))",
+            "(when #t (print \"ok\"))",
+        ];
+        for input in &inputs {
+            let first = format_document(input);
+            let second = format_document(&first);
+            let normalize = |s: &str| -> String {
+                s.chars().filter(|c| !c.is_whitespace()).collect()
+            };
+            assert_eq!(normalize(&first), normalize(&second),
+                "Roundtrip failed for '{}'", input);
+        }
+    }
+
+    #[test]
+    fn test_format_roundtrip_nested() {
+        let inputs = vec![
+            "(+ (* 1 2) (/ 3 4))",
+            "(defun add [a b] (+ a b))",
+            "(array ['k1 10] ['k2 20])",
+            "(map (fn [x] (* x 2)) '(1 2 3))",
+            "(case x [1 \"a\"] [2 \"b\"] [default \"c\"])",
+        ];
+        for input in &inputs {
+            let first = format_document(input);
+            let second = format_document(&first);
+            let normalize = |s: &str| -> String {
+                s.chars().filter(|c| !c.is_whitespace()).collect()
+            };
+            assert_eq!(normalize(&first), normalize(&second),
+                "Roundtrip failed for nested '{}'", input);
+        }
+    }
+
+    #[test]
+    fn test_format_roundtrip_with_quotes() {
+        let inputs = vec![
+            "'(1 2 3)",
+            "`(a ,b ,@c)",
+            "'(quote hello)",
+        ];
+        for input in &inputs {
+            let output = format_document(input);
+            assert!(!output.is_empty(), "Quoted form '{}' should produce output", input);
+        }
+    }
+
+    #[test]
+    fn test_format_ultra_deep_nesting() {
+        // 20-level deep nesting
+        let input = "(+ 1 (+ 2 (+ 3 (+ 4 (+ 5 (+ 6 (+ 7 (+ 8 (+ 9 (+ 10 (+ 11 (+ 12 (+ 13 (+ 14 (+ 15 (+ 16 (+ 17 (+ 18 (+ 19 20)))))))))))))))))))";
+        let output = format_document(input);
+        assert!(!output.is_empty());
+        // Should not panic
+    }
+
+    #[test]
+    fn test_format_many_sexprs_in_sequence() {
+        let mut input = String::new();
+        for i in 0..50 {
+            input.push_str(&format!("(define var{} {})\n", i, i));
+        }
+        let output = format_document(&input);
+        for i in 0..50 {
+            assert!(output.contains(&format!("var{}", i)), "Missing var{}", i);
+        }
+    }
+
+    #[test]
+    fn test_format_mixed_bracket_depth() {
+        let input = "(let ([x [1 2 3]] [y {4 5 6}] [z '(7 8 9)]) (list (first x) (first y) (first z)))";
+        let output = format_document(input);
+        assert!(!output.is_empty());
+    }
+
+    #[test]
+    fn test_format_all_types_in_one_expr() {
+        let input = r#"(defun all-types [s i b l a]
+  (do
+    (define str-val (strlen s))
+    (define int-val (* i 2))
+    (define bool-val (and b true))
+    (define list-sum (sum l))
+    (define arr-get (geta a 'key))
+    (list str-val int-val bool-val list-sum arr-get)))"#;
+        let output = format_document(input);
+        assert!(!output.is_empty());
+    }
+
+    #[test]
+    fn test_format_consistency_across_types() {
+        let inputs = [
+            "(+ 1 2)",
+            "(- 3 4)",
+            "(if #t 1 0)",
+            "(let ([x 1]) x)",
+            "(defun f [x] x)",
+            "(map (fn [x] x) '(1 2))",
+            "(fold + 0 '(1 2 3))",
+            "(array ['k 1])",
+            "(case x [1 \"a\"])",
+            "'(1 2 3)",
+        ];
+        for input in &inputs {
+            let output = format_document(input);
+            assert!(!output.is_empty(), "Format '{}' should produce output", input);
+            // Re-format should not change semantics (same non-whitespace content)
+            let second = format_document(&output);
+            let norm = |s: &str| s.chars().filter(|c| !c.is_whitespace()).collect::<String>();
+            assert_eq!(norm(&output), norm(&second),
+                "Reformat of '{}' changed content", input);
+        }
     }
 }

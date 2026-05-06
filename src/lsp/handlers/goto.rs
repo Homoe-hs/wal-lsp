@@ -29,8 +29,13 @@ fn find_definition(params: &TextDocumentPositionParams) -> Option<GotoDefinition
         ws.get_word_at_position(uri, line, character)?
     };
 
+    goto_symbol(&word)
+}
+
+/// Resolve goto definition for a symbol name (no workspace position dependency)
+pub fn goto_symbol(name: &str) -> Option<GotoDefinitionResponse> {
     let ws = WORKSPACE.read().unwrap_or_else(|e| e.into_inner());
-    let locations = ws.symbol_index.find(&word);
+    let locations = ws.symbol_index.find(name);
 
     if locations.is_empty() {
         return None;
@@ -45,4 +50,62 @@ fn find_definition(params: &TextDocumentPositionParams) -> Option<GotoDefinition
         .collect();
 
     Some(GotoDefinitionResponse::Array(lsp_locations))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lsp::WORKSPACE;
+    use std::str::FromStr;
+
+    fn setup_workspace_with_symbols() {
+        let mut ws = WORKSPACE.write().unwrap_or_else(|e| e.into_inner());
+        // Clear previous state from other tests
+        ws.documents.clear();
+        ws.symbol_index = crate::workspace::SymbolIndex::new();
+
+        let uri = lsp_types::Uri::from_str("file:///test-goto.wal").unwrap();
+        let source = "(define target-var 42)\n(defun target-fn [x] (* x 2))";
+        ws.open_document(uri.clone(), source.to_string());
+    }
+
+    #[test]
+    fn test_goto_defined_variable() {
+        setup_workspace_with_symbols();
+        let result = goto_symbol("target-var");
+        assert!(result.is_some(), "Should find 'target-var'");
+        match result.unwrap() {
+            GotoDefinitionResponse::Array(locations) => {
+                assert_eq!(locations.len(), 1);
+            }
+            _ => panic!("Expected Array response"),
+        }
+    }
+
+    #[test]
+    fn test_goto_defined_function() {
+        setup_workspace_with_symbols();
+        let result = goto_symbol("target-fn");
+        assert!(result.is_some(), "Should find 'target-fn'");
+    }
+
+    #[test]
+    fn test_goto_undefined_symbol() {
+        setup_workspace_with_symbols();
+        let result = goto_symbol("nonexistent-symbol");
+        assert!(result.is_none(), "Should not find undefined symbol");
+    }
+
+    #[test]
+    fn test_goto_finds_correct_uri() {
+        setup_workspace_with_symbols();
+        let result = goto_symbol("target-var").expect("Should find");
+        match result {
+            GotoDefinitionResponse::Array(locations) => {
+                assert_eq!(locations.len(), 1);
+                assert!(locations[0].uri.to_string().contains("test-goto.wal"));
+            }
+            _ => panic!("Expected Array"),
+        }
+    }
 }

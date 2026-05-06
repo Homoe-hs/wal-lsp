@@ -734,3 +734,156 @@ static FUNCTION_DOCS: Lazy<HashMap<String, FunctionDoc>> = Lazy::new(|| {
 pub fn get_doc(name: &str) -> Option<FunctionDoc> {
     FUNCTION_DOCS.get(name).cloned()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn doc_names() -> Vec<&'static str> {
+        FUNCTION_DOCS.keys().map(|k| k.as_str()).collect()
+    }
+
+    #[test]
+    fn test_arithmetic_operators_have_docs() {
+        for name in &["+", "-", "*", "/", "**"] {
+            assert!(get_doc(name).is_some(), "Missing docs for '{}'", name);
+        }
+    }
+
+    #[test]
+    fn test_logic_operators_have_docs() {
+        for name in &["!", "&&", "||", "=", "!=", ">", "<", ">=", "<="] {
+            assert!(get_doc(name).is_some(), "Missing docs for '{}'", name);
+        }
+    }
+
+    #[test]
+    fn test_state_forms_have_docs() {
+        for name in &["define", "let", "set!"] {
+            assert!(get_doc(name).is_some(), "Missing docs for '{}'", name);
+        }
+    }
+
+    #[test]
+    fn test_function_forms_have_docs() {
+        for name in &["defun", "fn"] {
+            assert!(get_doc(name).is_some(), "Missing docs for '{}'", name);
+        }
+    }
+
+    #[test]
+    fn test_control_flow_have_docs() {
+        for name in &["do", "when", "unless", "if", "cond", "case", "while"] {
+            assert!(get_doc(name).is_some(), "Missing docs for '{}'", name);
+        }
+    }
+
+    #[test]
+    fn test_printing_have_docs() {
+        for name in &["print", "printf"] {
+            assert!(get_doc(name).is_some(), "Missing docs for '{}'", name);
+        }
+    }
+
+    #[test]
+    fn test_io_have_docs() {
+        for name in &["exit", "eval-file"] {
+            assert!(get_doc(name).is_some(), "Missing docs for '{}'", name);
+        }
+    }
+
+    #[test]
+    fn test_waveform_ops_have_docs() {
+        for name in &["load", "unload", "step", "alias", "unalias"] {
+            let doc = get_doc(name);
+            assert!(doc.is_some(), "Missing docs for waveform op '{}'", name);
+        }
+    }
+
+    #[test]
+    fn test_waveform_cond_ops_have_docs() {
+        for name in &["whenever", "find", "count", "timeframe"] {
+            let doc = get_doc(name);
+            assert!(doc.is_some(), "Missing docs for waveform cond '{}'", name);
+        }
+    }
+
+    #[test]
+    fn test_signal_access_have_docs() {
+        for name in &["get", "slice", "reval"] {
+            assert!(get_doc(name).is_some(), "Missing docs for '{}'", name);
+        }
+    }
+
+    #[test]
+    fn test_signal_extra_have_docs() {
+        for name in &["signal?"] {
+            assert!(get_doc(name).is_some(), "Missing docs for '{}'", name);
+        }
+    }
+
+    #[test]
+    fn test_groups_scopes_have_docs() {
+        for name in &["groups", "in-groups", "resolve-group", "in-scopes", "all-scopes"] {
+            assert!(get_doc(name).is_some(), "Missing docs for '{}'", name);
+        }
+    }
+
+    #[test]
+    fn test_list_ops_have_docs() {
+        for name in &["list", "first", "second", "last", "rest", "in",
+                       "map", "fold", "zip", "min", "max", "sum",
+                       "average", "length"] {
+            assert!(get_doc(name).is_some(), "Missing docs for list op '{}'", name);
+        }
+    }
+
+    #[test]
+    fn test_array_ops_have_docs() {
+        for name in &["array", "seta", "geta", "geta/default", "dela", "mapa"] {
+            assert!(get_doc(name).is_some(), "Missing docs for array op '{}'", name);
+        }
+    }
+
+    #[test]
+    fn test_type_ops_have_docs() {
+        for name in &["convert/bin", "atom?", "symbol?", "string?", "int?", "list?"] {
+            assert!(get_doc(name).is_some(), "Missing docs for type op '{}'", name);
+        }
+    }
+
+    #[test]
+    fn test_doc_structure_is_valid() {
+        for name in doc_names() {
+            let doc = get_doc(name).unwrap();
+            assert!(!doc.name.is_empty(), "Doc for '{}' has empty name", name);
+            assert!(!doc.signature.is_empty(), "Doc for '{}' has empty signature", name);
+            assert!(!doc.description.is_empty(), "Doc for '{}' has empty description", name);
+        }
+    }
+
+    #[test]
+    fn test_unknown_symbol_returns_none() {
+        assert!(get_doc("zzz-impossible-symbol-42").is_none());
+    }
+
+    #[test]
+    fn test_doc_example_present_for_key_functions() {
+        // Key functions should have examples
+        let with_examples = ["+", "define", "let", "defun", "fn", "if",
+                             "map", "fold", "array", "load", "get"];
+        for name in &with_examples {
+            let doc = get_doc(name).expect(&format!("Missing doc for '{}'", name));
+            assert!(doc.example.is_some(),
+                "Doc for '{}' should have an example. Signature: {}",
+                name, doc.signature);
+        }
+    }
+
+    #[test]
+    fn test_all_docs_count() {
+        // Verify we have a reasonable number of documented functions
+        assert!(doc_names().len() >= 40,
+            "Expected >= 40 documented functions, got {}", doc_names().len());
+    }
+}

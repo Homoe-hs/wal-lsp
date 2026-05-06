@@ -257,4 +257,37 @@ mod tests {
         let reader = FstReader::from_path(path).unwrap();
         assert!(!reader.file.signals.is_empty(), "Should have signals");
     }
+
+    #[test]
+    fn test_decode_varint_edge_cases() {
+        // min values
+        assert_eq!(decode_varint(&[0x00]), Some((0, 1)));
+        assert_eq!(decode_varint(&[0x7F]), Some((127, 1)));
+        assert_eq!(decode_varint(&[0x80, 0x01]), Some((128, 2)));
+        // max 2-byte
+        assert_eq!(decode_varint(&[0xFF, 0x7F]), Some((16383, 2)));
+        // max 3-byte
+        assert_eq!(decode_varint(&[0xFF, 0xFF, 0x7F]), Some((2097151, 3)));
+        // 4-byte value
+        assert_eq!(decode_varint(&[0x80, 0x80, 0x80, 0x01]), Some((2097152, 4)));
+        // incomplete
+        assert_eq!(decode_varint(&[0x80]), None);
+        // empty
+        assert_eq!(decode_varint(&[]), None);
+    }
+
+    #[test]
+    fn test_decode_varint_many_values() {
+        // Sequential varint: 0x01(=1) 0x7F(=127) 0x80 0x01(=128) 0xFF 0x7F(=16383)
+        let data = [0x01, 0x7F, 0x80, 0x01, 0xFF, 0x7F];
+        let (val1, n1) = decode_varint(&data[0..]).unwrap();
+        let (val2, n2) = decode_varint(&data[n1..]).unwrap();
+        let (val3, n3) = decode_varint(&data[n1+n2..]).unwrap();
+        let (val4, n4) = decode_varint(&data[n1+n2+n3..]).unwrap();
+        assert_eq!(val1, 1);
+        assert_eq!(val2, 127);
+        assert_eq!(val3, 128);
+        assert_eq!(val4, 16383);
+        assert_eq!(n1 + n2 + n3 + n4, 6);
+    }
 }

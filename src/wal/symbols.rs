@@ -207,10 +207,195 @@ mod tests {
 "#;
         let symbols = extract_symbols(source);
         assert!(!symbols.is_empty());
-        // First symbol: "add" from (define add ...)
         assert_eq!(symbols[0].name, "add");
-        // Second symbol: "greeting" from (define greeting ...)
-        // The inner (fn ...) is also extracted as a nested symbol (name="fn")
         assert!(symbols.iter().any(|s| s.name == "greeting"));
+    }
+
+    #[test]
+    fn test_extract_defsig() {
+        let source = "(defsig my-signal [7:0])";
+        let symbols = extract_symbols(source);
+        assert!(!symbols.is_empty());
+        assert_eq!(symbols[0].name, "my-signal");
+        assert_eq!(symbols[0].kind, SymbolKind::VARIABLE);
+    }
+
+    #[test]
+    fn test_extract_defmacro() {
+        let source = "(defmacro my-when [cond & body] `(if ,cond (do ,@body)))";
+        let symbols = extract_symbols(source);
+        assert!(!symbols.is_empty());
+        assert_eq!(symbols[0].name, "my-when");
+        assert_eq!(symbols[0].kind, SymbolKind::METHOD);
+    }
+
+    #[test]
+    fn test_extract_multiple_defines() {
+        let source = "(define a 1)\n(define b 2)\n(define c 3)";
+        let symbols = extract_symbols(source);
+        assert_eq!(symbols.len(), 3);
+        assert!(symbols.iter().any(|s| s.name == "a"));
+        assert!(symbols.iter().any(|s| s.name == "b"));
+        assert!(symbols.iter().any(|s| s.name == "c"));
+    }
+
+    #[test]
+    fn test_extract_no_defines_in_plain_expression() {
+        let source = "(+ 1 2 3)";
+        let symbols = extract_symbols(source);
+        assert!(symbols.is_empty(), "No define/defun/defmacro should be found");
+    }
+
+    #[test]
+    fn test_extract_nested_defines() {
+        let source = "(do (define x 1) (define y (+ x 2)))";
+        let symbols = extract_symbols(source);
+        assert_eq!(symbols.len(), 2);
+        assert!(symbols.iter().any(|s| s.name == "x"));
+        assert!(symbols.iter().any(|s| s.name == "y"));
+    }
+
+    #[test]
+    fn test_extract_defuns() {
+        let source = "(defun add [a b] (+ a b))\n(defun sub [a b] (- a b))";
+        let symbols = extract_symbols(source);
+        assert_eq!(symbols.len(), 2);
+        assert!(symbols.iter().any(|s| s.name == "add"));
+        assert!(symbols.iter().any(|s| s.name == "sub"));
+    }
+
+    #[test]
+    fn test_extract_from_multi_line_defun() {
+        let source = r#"(defun factorial [n]
+  (if (<= n 1)
+      1
+      (* n (factorial (- n 1)))))"#;
+        let symbols = extract_symbols(source);
+        assert_eq!(symbols.len(), 1);
+        assert_eq!(symbols[0].name, "factorial");
+        assert_eq!(symbols[0].kind, SymbolKind::FUNCTION);
+    }
+
+    #[test]
+    fn test_extract_deeply_nested_define() {
+        let source = "(do (do (define deep-var 42) (print deep-var)) (define outer 10))";
+        let symbols = extract_symbols(source);
+        assert!(!symbols.is_empty());
+        assert!(symbols.iter().any(|s| s.name == "deep-var"));
+        assert!(symbols.iter().any(|s| s.name == "outer"));
+    }
+
+    #[test]
+    fn test_extract_fn_inside_define() {
+        let source = "(define add (fn [x y] (+ x y)))";
+        let symbols = extract_symbols(source);
+        assert_eq!(symbols.len(), 2);
+        assert!(symbols.iter().any(|s| s.name == "add" && s.kind == SymbolKind::VARIABLE));
+        assert!(symbols.iter().any(|s| s.name == "fn" && s.kind == SymbolKind::FUNCTION));
+    }
+
+    #[test]
+    fn test_extract_let_binding_not_symbol() {
+        // let bindings are NOT extracted as symbols (only define/defun/defmacro/defsig)
+        let source = "(let ([x 10] [y 20]) (+ x y))";
+        let symbols = extract_symbols(source);
+        assert_eq!(symbols.len(), 0, "let bindings should not be extracted as symbols");
+    }
+
+    #[test]
+    fn test_extract_multiple_defsig() {
+        let source = "(defsig a [7:0])\n(defsig b [3:0])\n(defsig c [15:0])";
+        let symbols = extract_symbols(source);
+        assert_eq!(symbols.len(), 3);
+        assert!(symbols.iter().all(|s| s.kind == SymbolKind::VARIABLE));
+    }
+
+    #[test]
+    fn test_extract_with_comments() {
+        let source = ";; header comment\n(define x 1)\n;; inline\n(define y 2)\n";
+        let symbols = extract_symbols(source);
+        assert_eq!(symbols.len(), 2);
+    }
+
+    #[test]
+    fn test_extract_defun_with_comment_body() {
+        let source = r#"(defun greet [name]
+  ;; print greeting
+  (print "Hello" name)
+  ;; return name
+  name)"#;
+        let symbols = extract_symbols(source);
+        assert_eq!(symbols.len(), 1);
+        assert_eq!(symbols[0].name, "greet");
+    }
+
+    #[test]
+    fn test_extract_complex_lambda_chain() {
+        let source = r#"(define chain
+  (fn [x]
+    (fn [y]
+      (fn [z]
+        (+ x y z)))))"#;
+        let symbols = extract_symbols(source);
+        assert!(!symbols.is_empty());
+        assert!(symbols.iter().any(|s| s.name == "chain"));
+    }
+
+    #[test]
+    fn test_extract_defun_with_default_args() {
+        let source = r#"(defun inc-define sym)"#;
+        let symbols = extract_symbols(source);
+        // inc-define is a builtin, but in this context it's being defined
+        // Actually, tree-sitter sees "inc-define" as a symbol name
+        assert!(!symbols.is_empty());
+    }
+
+    #[test]
+    fn test_extract_mixed_definitions() {
+        let source = r#"
+(define state-counter 0)
+(defun increment [] (set! state-counter (+ state-counter 1)))
+(defmation [7:0])
+(defsig virtual-clk (rising tb.clk))
+(defmacro my-unless [cond & body] `(if (not ,cond) (do ,@body)))
+"#;
+        let symbols = extract_symbols(source);
+        assert!(!symbols.is_empty());
+        // defmation is not recognized — should not cause panic
+        let _ = symbols.len();
+    }
+
+    #[test]
+    fn test_extract_symbol_range_is_valid() {
+        let source = "(define pi 3.14159)";
+        let symbols = extract_symbols(source);
+        assert_eq!(symbols.len(), 1);
+        let range = symbols[0].range;
+        assert!(range.start.line <= range.end.line);
+        assert!(range.start.character <= range.end.character);
+    }
+
+    #[test]
+    fn test_extract_huge_source() {
+        let mut source = String::new();
+        for i in 0..100 {
+            source.push_str(&format!("(define var_{} {})\n", i, i));
+        }
+        let symbols = extract_symbols(&source);
+        assert_eq!(symbols.len(), 100);
+    }
+
+    #[test]
+    fn test_extract_empty_source() {
+        let source = "";
+        let symbols = extract_symbols(source);
+        assert!(symbols.is_empty());
+    }
+
+    #[test]
+    fn test_extract_source_with_only_comments() {
+        let source = ";; just a comment\n;; another comment";
+        let symbols = extract_symbols(source);
+        assert!(symbols.is_empty());
     }
 }

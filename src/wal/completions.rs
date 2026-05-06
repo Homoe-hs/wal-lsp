@@ -221,6 +221,8 @@ pub fn get_all_completions() -> Vec<CompletionItem> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use super::*;
 
     #[test]
@@ -229,5 +231,220 @@ mod tests {
         assert!(!items.is_empty());
         assert!(items.iter().any(|i| i.label == "load"));
         assert!(items.iter().any(|i| i.label == "+"));
+    }
+
+    #[test]
+    fn test_all_operators_present() {
+        let items = get_all_completions();
+        let labels: HashSet<&str> = items.iter().map(|i| i.label.as_str()).collect();
+        for op in &["+", "-", "*", "/", "**", "=", "!=", ">", "<", ">=", "<=", "!", "&&", "||"] {
+            assert!(labels.contains(op), "Missing operator completion: {}", op);
+        }
+    }
+
+    #[test]
+    fn test_key_special_forms_present() {
+        let items = get_all_completions();
+        let labels: HashSet<&str> = items.iter().map(|i| i.label.as_str()).collect();
+        for sf in &["define", "let", "fn", "if", "cond", "case", "quote", "do",
+                      "while", "list", "array", "eval-file"] {
+            assert!(labels.contains(sf), "Missing special form completion: {}", sf);
+        }
+    }
+
+    #[test]
+    fn test_key_builtin_functions_present() {
+        let items = get_all_completions();
+        let labels: HashSet<&str> = items.iter().map(|i| i.label.as_str()).collect();
+        for f in &["first", "second", "last", "rest", "length", "map", "fold", "filter",
+                     "in", "zip", "max", "min", "average", "floor", "ceil", "round", "mod",
+                     "abs", "load", "unload", "step", "get", "seta", "geta", "mapa",
+                     "print", "printf", "exit", "atom?", "symbol?", "string?", "int?", "list?"] {
+            assert!(labels.contains(f), "Missing builtin function completion: {}", f);
+        }
+    }
+
+    #[test]
+    fn test_known_symbols_consistency() {
+        let items = get_all_completions();
+        let labels: HashSet<&str> = items.iter().map(|i| i.label.as_str()).collect();
+
+        for (name, _) in OPERATORS {
+            assert!(labels.contains(name), "OPERATORS item '{}' not in completions", name);
+        }
+        for (name, _) in SPECIAL_FORMS {
+            assert!(labels.contains(name), "SPECIAL_FORMS item '{}' not in completions", name);
+        }
+        for (name, _) in BUILTIN_FUNCTIONS {
+            assert!(labels.contains(name), "BUILTIN_FUNCTIONS item '{}' not in completions", name);
+        }
+        for (name, _) in MACROS {
+            assert!(labels.contains(name), "MACROS item '{}' not in completions", name);
+        }
+    }
+
+    // ---- 补全过滤/排序测试 ----
+
+    fn filter_by_prefix(prefix: &str) -> Vec<CompletionItem> {
+        get_all_completions()
+            .into_iter()
+            .filter(|c| c.label.starts_with(prefix))
+            .collect()
+    }
+
+    #[test]
+    fn test_completion_filter_exact_match() {
+        let results = filter_by_prefix("+");
+        assert_eq!(results.len(), 1, "Only '+' should match prefix '+'");
+        assert_eq!(results[0].label, "+");
+    }
+
+    #[test]
+    fn test_completion_filter_prefix_l() {
+        let results = filter_by_prefix("l");
+        assert!(results.iter().any(|c| c.label == "load"));
+        assert!(results.iter().any(|c| c.label == "let"));
+        assert!(results.iter().any(|c| c.label == "length"));
+        assert!(results.iter().any(|c| c.label == "list"));
+        assert!(results.iter().any(|c| c.label == "list?"));
+    }
+
+    #[test]
+    fn test_completion_filter_prefix_a() {
+        let results = filter_by_prefix("a");
+        assert!(results.iter().any(|c| c.label == "array"));
+        assert!(results.iter().any(|c| c.label == "abs"));
+        assert!(results.iter().any(|c| c.label == "atom?"));
+        assert!(results.iter().any(|c| c.label == "average"));
+        assert!(results.iter().any(|c| c.label == "append"));
+        assert!(results.iter().any(|c| c.label == "always"));
+    }
+
+    #[test]
+    fn test_completion_filter_prefix_d() {
+        let results = filter_by_prefix("d");
+        assert!(results.iter().any(|c| c.label == "define"));
+        assert!(results.iter().any(|c| c.label == "defun"));
+        assert!(results.iter().any(|c| c.label == "defined?"));
+        assert!(results.iter().any(|c| c.label == "do"));
+        assert!(results.iter().any(|c| c.label == "dela"));
+    }
+
+    #[test]
+    fn test_completion_filter_prefix_s() {
+        let results = filter_by_prefix("s");
+        assert!(results.iter().any(|c| c.label == "set!"));
+        assert!(results.iter().any(|c| c.label == "step"));
+        assert!(results.iter().any(|c| c.label == "sum"));
+        assert!(results.iter().any(|c| c.label == "slice"));
+        assert!(results.iter().any(|c| c.label == "sort"));
+        assert!(results.iter().any(|c| c.label == "signal?"));
+    }
+
+    #[test]
+    fn test_completion_filter_prefix_in() {
+        let results = filter_by_prefix("in");
+        assert!(results.iter().any(|c| c.label == "int?"));
+        assert!(results.iter().any(|c| c.label == "in"));
+    }
+
+    #[test]
+    fn test_completion_filter_empty_prefix_returns_all() {
+        let all = get_all_completions();
+        let filtered = filter_by_prefix("");
+        assert_eq!(filtered.len(), all.len());
+    }
+
+    #[test]
+    fn test_completion_filter_no_match() {
+        let results = filter_by_prefix("zzz");
+        assert!(results.is_empty(), "No completion should match 'zzz'");
+    }
+
+    #[test]
+    fn test_completion_counts_by_kind() {
+        let items = get_all_completions();
+        let mut keyword_count = 0;
+        let mut function_count = 0;
+        let mut operator_count = 0;
+        let mut variable_count = 0;
+        for item in &items {
+            match item.kind {
+                CompletionKind::Keyword => keyword_count += 1,
+                CompletionKind::Function => function_count += 1,
+                CompletionKind::Operator => operator_count += 1,
+                CompletionKind::Variable => variable_count += 1,
+                _ => {}
+            }
+        }
+        assert!(operator_count >= 10, "Expected >=10 operators, got {}", operator_count);
+        assert!(keyword_count >= 15, "Expected >=15 keywords, got {}", keyword_count);
+        assert!(function_count >= 60, "Expected >=60 functions, got {}", function_count);
+        let total = keyword_count + function_count + operator_count + variable_count;
+        assert!(total >= 80, "Expected >=80 total completions, got {}", total);
+    }
+
+    #[test]
+    fn test_completion_filter_prefix_si() {
+        let results = filter_by_prefix("si");
+        assert!(results.iter().any(|c| c.label == "signal?"));
+        assert!(results.iter().any(|c| c.label == "signal-width"));
+    }
+
+    #[test]
+    fn test_completion_filter_prefix_co() {
+        let results = filter_by_prefix("co");
+        assert!(results.iter().any(|c| c.label == "cond"));
+        assert!(results.iter().any(|c| c.label == "convert/bin"));
+    }
+
+    #[test]
+    fn test_completion_filter_prefix_ma() {
+        let results = filter_by_prefix("ma");
+        assert!(results.iter().any(|c| c.label == "map"));
+        assert!(results.iter().any(|c| c.label == "max"));
+        assert!(results.iter().any(|c| c.label == "mapa"));
+    }
+
+    #[test]
+    fn test_completion_label_uniqueness() {
+        let items = get_all_completions();
+        let mut labels: HashSet<String> = HashSet::new();
+        for item in &items {
+            labels.insert(item.label.clone());
+        }
+        assert_eq!(labels.len(), items.len(), "All labels must be unique");
+    }
+
+    #[test]
+    fn test_special_variables_present() {
+        let items = get_all_completions();
+        let labels: HashSet<&str> = items.iter().map(|i| i.label.as_str()).collect();
+        for v in &["SIGNALS", "INDEX", "MAX-INDEX", "CS", "LOCAL-SIGNALS",
+                     "VIRTUAL-SIGNALS", "TRACE-FILE", "TRACE-NAME", "TS"] {
+            assert!(labels.contains(v), "Missing special variable completion: {}", v);
+        }
+    }
+
+    #[test]
+    fn test_no_duplicate_labels() {
+        let items = get_all_completions();
+        let mut seen = HashSet::new();
+        for item in &items {
+            assert!(seen.insert(&item.label),
+                "Duplicate completion label: {}", item.label);
+        }
+    }
+
+    #[test]
+    fn test_completion_items_have_valid_kinds() {
+        let items = get_all_completions();
+        for item in &items {
+            assert!(!item.label.is_empty(), "Empty label in completion");
+            // detail is optional but if present should not be empty
+            if let Some(ref d) = item.detail {
+                assert!(!d.is_empty(), "Empty detail for '{}'", item.label);
+            }
+        }
     }
 }

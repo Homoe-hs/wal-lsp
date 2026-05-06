@@ -133,3 +133,112 @@ fn extract_signal_prefix(line: &str, cursor_pos: usize) -> String {
 
     before_cursor[end..].to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ---------- extract_prefix ----------
+    #[test]
+    fn test_extract_prefix_empty_line() {
+        assert_eq!(extract_prefix("", 0), "");
+    }
+
+    #[test]
+    fn test_extract_prefix_at_start() {
+        assert_eq!(extract_prefix("(load", 0), "");
+    }
+
+    #[test]
+    fn test_extract_prefix_after_open_paren() {
+        assert_eq!(extract_prefix("(", 1), "");
+    }
+
+    #[test]
+    fn test_extract_prefix_mid_word() {
+        assert_eq!(extract_prefix("(lo", 3), "lo");
+    }
+
+    #[test]
+    fn test_extract_prefix_full_word() {
+        assert_eq!(extract_prefix("(load", 5), "load");
+    }
+
+    #[test]
+    fn test_extract_prefix_hyphenated() {
+        assert_eq!(extract_prefix("(eval-fi", 8), "eval-fi");
+    }
+
+    #[test]
+    fn test_extract_prefix_operator_only_returns_empty() {
+        // Pure operator prefix like "(+" should return empty
+        assert_eq!(extract_prefix("(+", 2), "");
+    }
+
+    #[test]
+    fn test_extract_prefix_alpha_plus_operator() {
+        assert_eq!(extract_prefix("(print+", 7), "print+");
+    }
+
+    #[test]
+    fn test_extract_prefix_after_space() {
+        assert_eq!(extract_prefix("(load ", 6), "");
+    }
+
+    #[test]
+    fn test_extract_prefix_with_dot() {
+        assert_eq!(extract_prefix("(tb.cl", 6), "tb.cl");
+    }
+
+    #[test]
+    fn test_extract_prefix_cursor_beyond_length() {
+        assert_eq!(extract_prefix("(hi", 10), "hi");
+    }
+
+    // ---------- extract_signal_prefix ----------
+    #[test]
+    fn test_extract_signal_prefix_empty() {
+        assert_eq!(extract_signal_prefix("", 0), "");
+    }
+
+    #[test]
+    fn test_extract_signal_prefix_simple() {
+        assert_eq!(extract_signal_prefix("tb.clk", 6), "tb.clk");
+    }
+
+    #[test]
+    fn test_extract_signal_prefix_hierarchical() {
+        assert_eq!(extract_signal_prefix("tb.sub.sig", 11), "tb.sub.sig");
+    }
+
+    #[test]
+    fn test_extract_signal_prefix_partial() {
+        assert_eq!(extract_signal_prefix("tb.", 3), "tb.");
+    }
+
+    #[test]
+    fn test_extract_signal_prefix_after_paren() {
+        // In "(load " prefix, cursor after space -> no signal prefix
+        assert_eq!(extract_signal_prefix("(load ", 6), "");
+    }
+
+    #[test]
+    fn test_extract_signal_prefix_with_underscores() {
+        assert_eq!(extract_signal_prefix("sig_name", 8), "sig_name");
+    }
+
+    #[test]
+    fn test_extract_signal_prefix_with_dash() {
+        assert_eq!(extract_signal_prefix("signal-name", 11), "signal-name");
+    }
+
+    #[test]
+    fn test_extract_signal_prefix_with_slash() {
+        assert_eq!(extract_signal_prefix("top/sub/sig", 11), "top/sub/sig");
+    }
+
+    #[test]
+    fn test_extract_signal_prefix_cursor_at_start() {
+        assert_eq!(extract_signal_prefix("tb.clk", 0), "");
+    }
+}

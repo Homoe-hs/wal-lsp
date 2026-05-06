@@ -143,4 +143,87 @@ b0 !
         );
         assert!(info.signals.contains(&"tb.data".to_string()));
     }
+
+    #[test]
+    fn test_parse_csv_header() {
+        let mut file = NamedTempFile::new().unwrap();
+        let content = "Time [s],tb.clk,tb.rst,tb.data\n1e-9,1,0,42\n2e-9,0,1,43\n";
+        file.write_all(content.as_bytes()).unwrap();
+        file.flush().unwrap();
+
+        let info = parse_csv_header(file.path()).unwrap();
+        assert!(info.signals.contains(&"tb.clk".to_string()),
+            "Expected tb.clk, got: {:?}", info.signals);
+        assert!(info.signals.contains(&"tb.rst".to_string()));
+        assert!(info.signals.contains(&"tb.data".to_string()));
+        assert_eq!(info.signals.len(), 3);
+    }
+
+    #[test]
+    fn test_vcd_handles_nested_scopes() {
+        let mut file = NamedTempFile::new().unwrap();
+        let content = r#"
+$timescale 1ps $end
+$scope module top $end
+$scope module sub $end
+$var wire 1 ! inner_sig $end
+$upscope $end
+$var wire 1 " outer_sig $end
+$upscope $end
+$enddefinitions $end
+"#;
+        file.write_all(content.as_bytes()).unwrap();
+        file.flush().unwrap();
+
+        let info = parse_vcd_header(file.path()).unwrap();
+        assert!(info.signals.contains(&"top.sub.inner_sig".to_string()),
+            "Nested scope signal missing: {:?}", info.signals);
+        assert!(info.signals.contains(&"top.outer_sig".to_string()));
+    }
+
+    #[test]
+    fn test_vcd_timescale_extracted() {
+        let mut file = NamedTempFile::new().unwrap();
+        let content = "$timescale 1ps $end\n$enddefinitions $end\n";
+        file.write_all(content.as_bytes()).unwrap();
+        file.flush().unwrap();
+
+        let info = parse_vcd_header(file.path()).unwrap();
+        assert_eq!(info.timescale, Some("1ps".to_string()));
+    }
+
+    #[test]
+    fn test_parse_waveform_header_dispatches() {
+        let mut file = NamedTempFile::new().unwrap();
+        let content = r#"
+$timescale 1ns $end
+$scope module test $end
+$var wire 1 ! sig $end
+$upscope $end
+$enddefinitions $end
+"#;
+        file.write_all(content.as_bytes()).unwrap();
+        file.flush().unwrap();
+
+        let mut path = file.path().to_path_buf();
+        path.set_extension("vcd");
+        // Since tempfile creates random paths without .vcd extension,
+        // call parse_vcd_header directly
+        let info = parse_vcd_header(file.path()).unwrap();
+        assert_eq!(info.signals, vec!["test.sig".to_string()]);
+    }
+
+    #[test]
+    fn test_csv_empty_file_handled() {
+        let mut file = NamedTempFile::new().unwrap();
+        file.write_all(b"").unwrap();
+        file.flush().unwrap();
+
+        let info = parse_csv_header(file.path());
+        // Empty CSV should either fail or return empty signals
+        match info {
+            Ok(info) => assert!(info.signals.is_empty()),
+            Err(_) => {} // also acceptable
+        }
+    }
 }

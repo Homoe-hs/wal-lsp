@@ -30,7 +30,13 @@ struct Cli;
 fn main() -> Result<()> {
     let _ = Cli::parse();
 
-    tracing_subscriber::fmt::init();
+    tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .init();
 
     info!("Starting WAL LSP server");
     lsp::run()?;

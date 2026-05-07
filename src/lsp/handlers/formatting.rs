@@ -1,5 +1,5 @@
 use crate::lsp::WORKSPACE;
-use crate::wal::format::format_document;
+use crate::wal::format::{self, format_document_with_opts};
 use anyhow::Result;
 use lsp_server::{Connection, Request, Response};
 use lsp_types::{DocumentFormattingParams, Position, Range, TextEdit};
@@ -21,11 +21,14 @@ pub fn handle(connection: &Connection, req: Request) -> Result<()> {
         return Ok(());
     }
 
-    let formatted = format_document(&text);
+    let opts = crate::lsp::FORMAT_OPTS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone();
+    let formatted = format_document_with_opts(&text, &opts);
 
     let line_count = text.lines().count() as u32;
 
-    // Use a wide range to ensure the full document is replaced regardless of length changes
     let edit = TextEdit {
         range: Range::new(
             Position::new(0, 0),

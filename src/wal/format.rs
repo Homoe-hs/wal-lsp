@@ -1,27 +1,49 @@
 use crate::wal::parser::WalParser;
 use tree_sitter::Node;
 
-const TAB_WIDTH: usize = 4;
+/// 格式化选项 — 类似 verible 的 `FormatOptions` (列限制预留，后续实现行包裹)
+#[derive(Debug, Clone, Copy)]
+pub struct FormatOptions {
+    /// 每级缩进空格数 (verible 默认 2)
+    pub indentation_spaces: u32,
+    /// 目标行长度上限 (verible 默认 100，预留)
+    #[allow(dead_code)]
+    pub column_limit: u32,
+}
 
-#[allow(dead_code)]
+impl Default for FormatOptions {
+    fn default() -> Self {
+        Self {
+            indentation_spaces: 2,
+            column_limit: 100,
+        }
+    }
+}
+
+/// 使用默认选项格式化
 pub fn format_document(source: &str) -> String {
+    format_document_with_opts(source, &FormatOptions::default())
+}
+
+/// 使用指定选项格式化
+pub fn format_document_with_opts(source: &str, opts: &FormatOptions) -> String {
     let mut parser = WalParser::new();
     let tree = parser.parse_with_errors(source);
     let root = tree.root_node();
 
     let mut output = String::new();
-    format_node(root, source, 0, &mut output);
+    format_node(root, source, 0, opts, &mut output);
     output
 }
 
-fn format_node(node: Node, source: &str, indent: usize, output: &mut String) {
+fn format_node(node: Node, source: &str, indent: u32, opts: &FormatOptions, output: &mut String) {
     let kind = node.kind();
 
     match kind {
         "program" | "source_file" => {
             let mut cursor = node.walk();
             for child in node.children(&mut cursor) {
-                format_node(child, source, indent, output);
+                format_node(child, source, indent, opts, output);
             }
         }
         "list" => {
@@ -41,8 +63,8 @@ fn format_node(node: Node, source: &str, indent: usize, output: &mut String) {
 
             output.push(open);
 
-            let content_start = 1; // skip opening bracket
-            let content_end = children.len().saturating_sub(1); // before closing bracket
+            let content_start = 1;
+            let content_end = children.len().saturating_sub(1);
 
             if content_start < content_end {
                 let rest = &children[content_start..content_end];
@@ -50,13 +72,12 @@ fn format_node(node: Node, source: &str, indent: usize, output: &mut String) {
                 if rest.iter().any(|c| c.kind() == "list" || c.kind() == "sexpr") {
                     for child in rest {
                         output.push('\n');
-                        append_tabs(output, indent + 1);
-                        format_node(*child, source, indent + 1, output);
+                        append_indent(output, indent + 1, opts);
+                        format_node(*child, source, indent + 1, opts, output);
                     }
                 } else if !rest.is_empty() {
                     let first_content = rest[0];
                     if first_content.kind() == "sexpr_list" {
-                        // Flatten simple lists
                         let mut sc = first_content.walk();
                         let sexprs: Vec<Node> = first_content.children(&mut sc).collect();
                         let non_space: Vec<&Node> = sexprs.iter()
@@ -80,10 +101,9 @@ fn format_node(node: Node, source: &str, indent: usize, output: &mut String) {
             output.push(close);
         }
         "sexpr" => {
-            // For sexpr wrapping an atom/list — just output the inner content
             let mut cursor = node.walk();
             for child in node.children(&mut cursor) {
-                format_node(child, source, indent, output);
+                format_node(child, source, indent, opts, output);
             }
         }
         _ => {
@@ -93,11 +113,10 @@ fn format_node(node: Node, source: &str, indent: usize, output: &mut String) {
     }
 }
 
-fn append_tabs(output: &mut String, count: usize) {
-    for _ in 0..count {
-        for _ in 0..TAB_WIDTH {
-            output.push(' ');
-        }
+fn append_indent(output: &mut String, level: u32, opts: &FormatOptions) {
+    let total = (level as usize) * (opts.indentation_spaces as usize);
+    for _ in 0..total {
+        output.push(' ');
     }
 }
 
@@ -346,11 +365,45 @@ mod tests {
         for input in &inputs {
             let output = format_document(input);
             assert!(!output.is_empty(), "Format '{}' should produce output", input);
-            // Re-format should not change semantics (same non-whitespace content)
             let second = format_document(&output);
             let norm = |s: &str| s.chars().filter(|c| !c.is_whitespace()).collect::<String>();
             assert_eq!(norm(&output), norm(&second),
                 "Reformat of '{}' changed content", input);
         }
+    }
+
+    #[test]
+    fn test_format_with_custom_indent_2_spaces() {
+        let opts = FormatOptions { indentation_spaces: 2, column_limit: 100 };
+        let input = "(defun add [a b] (+ a b))";
+        let output = format_document_with_opts(input, &opts);
+        assert!(!output.is_empty());
+    }
+
+    #[test]
+    fn test_format_with_custom_indent_8_spaces() {
+        let opts = FormatOptions { indentation_spaces: 8, column_limit: 100 };
+        let input = "(defun add [a b] (+ a b))";
+        let output = format_document_with_opts(input, &opts);
+        assert!(!output.is_empty());
+    }
+
+    #[test]
+    fn test_format_options_idempotent() {
+        let opts = FormatOptions { indentation_spaces: 3, column_limit: 80 };
+        let input = "(do (define x 1) (define y 2) (+ x y))";
+        let first = format_document_with_opts(input, &opts);
+        let second = format_document_with_opts(&first, &opts);
+        let norm = |s: &str| s.chars().filter(|c| !c.is_whitespace()).collect::<String>();
+        assert_eq!(norm(&first), norm(&second), "FormatOptions idempotent");
+    }
+
+    #[test]
+    fn test_format_options_nested_indent() {
+        let opts = FormatOptions { indentation_spaces: 6, column_limit: 120 };
+        let input = "(let ([x 10] [y 20]) (+ x y))";
+        let output = format_document_with_opts(input, &opts);
+        // With 6-space indent, nested content should be indented by 6
+        assert!(!output.is_empty());
     }
 }

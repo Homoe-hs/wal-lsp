@@ -9,6 +9,12 @@ use tracing::{error, info};
 pub static WORKSPACE: std::sync::LazyLock<SharedWorkspace> =
     std::sync::LazyLock::new(create_workspace);
 
+/// 全局格式化选项 (可通过 CLI 或 LSP 初始化参数配置)
+pub static FORMAT_OPTS: std::sync::LazyLock<std::sync::Mutex<crate::wal::format::FormatOptions>> =
+    std::sync::LazyLock::new(|| {
+        std::sync::Mutex::new(crate::wal::format::FormatOptions::default())
+    });
+
 pub fn run() -> Result<()> {
     let (connection, _io_threads) = Connection::stdio();
 

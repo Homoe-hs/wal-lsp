@@ -8,7 +8,7 @@ use tracing::info;
 
 #[derive(Parser)]
 #[command(name = "wal-lsp")]
-#[command(version = "0.1.0")]
+#[command(version = env!("CARGO_PKG_VERSION"))]
 #[command(
     about = "WAL Language Server Protocol implementation",
     long_about = "LSP server for WAL (Waveform Analysis Language).\n\n\

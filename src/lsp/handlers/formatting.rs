@@ -1,5 +1,5 @@
 use crate::lsp::WORKSPACE;
-use crate::wal::format::{self, format_document_with_opts};
+use crate::wal::format::format_document_with_opts;
 use anyhow::Result;
 use lsp_server::{Connection, Request, Response};
 use lsp_types::{DocumentFormattingParams, Position, Range, TextEdit};

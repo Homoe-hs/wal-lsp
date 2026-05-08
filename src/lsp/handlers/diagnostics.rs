@@ -205,9 +205,7 @@ fn collect_syntax_errors(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lsp_types::{DiagnosticSeverity, Position, Range};
-    use std::fs;
-    use std::path::Path;
+    use lsp_types::DiagnosticSeverity;
 
     fn load_mega_test() -> String {
         let path = std::path::Path::new("tests/syntax/99_mega_test.wal");

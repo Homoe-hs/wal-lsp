@@ -21,6 +21,7 @@ impl Default for FormatOptions {
 }
 
 /// 使用默认选项格式化
+#[allow(dead_code)]
 pub fn format_document(source: &str) -> String {
     format_document_with_opts(source, &FormatOptions::default())
 }

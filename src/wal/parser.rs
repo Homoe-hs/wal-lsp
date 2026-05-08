@@ -16,6 +16,7 @@ impl WalParser {
         WalParser { parser }
     }
 
+    #[allow(dead_code)]
     pub fn parse(&mut self, source: &str) -> Result<Tree, String> {
         self.parser
             .parse(source, None)
@@ -45,6 +46,7 @@ impl Default for WalParser {
     }
 }
 
+#[allow(dead_code)]
 pub fn get_node_text(node: tree_sitter::Node, source: &str) -> Option<String> {
     source.get(node.byte_range()).map(|s| s.to_string())
 }

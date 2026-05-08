@@ -47,18 +47,6 @@ const KNOWN_SYMBOLS: &[&str] = &[
 
 pub struct UnknownSymbolRule;
 
-impl UnknownSymbolRule {
-    pub fn descriptor() -> RuleDescriptor {
-        RuleDescriptor {
-            id: "unknown-symbol",
-            name: "Unknown function or operator",
-            description: "Warns when calling an undefined or unknown function at top level",
-            default_enabled: true,
-            default_severity: LintSeverity::Warning,
-        }
-    }
-}
-
 impl Rule for UnknownSymbolRule {
     fn descriptor(&self) -> &RuleDescriptor {
         &RuleDescriptor {

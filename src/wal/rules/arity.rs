@@ -32,15 +32,6 @@ const KNOWN_ARITIES: &[(&str, usize)] = &[
 pub struct ArityRule;
 
 impl ArityRule {
-    pub fn descriptor() -> RuleDescriptor {
-        RuleDescriptor {
-            id: "arity-check",
-            name: "Check function arity",
-            description: "Verifies that known functions receive the correct number of arguments",
-            default_enabled: true,
-            default_severity: LintSeverity::Error,
-        }
-    }
     fn desc_ref() -> &'static RuleDescriptor {
         &RuleDescriptor {
             id: "arity-check",

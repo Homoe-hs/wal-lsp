@@ -11,10 +11,12 @@ use lsp_types::{Diagnostic, DiagnosticSeverity, Position, Range};
 pub enum LintSeverity {
     Error,
     Warning,
+    #[allow(dead_code)]
     Info,
 }
 
 impl LintSeverity {
+    #[allow(dead_code)]
     pub fn to_lsp(&self) -> DiagnosticSeverity {
         match self {
             LintSeverity::Error => DiagnosticSeverity::ERROR,
@@ -28,9 +30,12 @@ impl LintSeverity {
 #[derive(Debug, Clone)]
 pub struct RuleDescriptor {
     pub id: &'static str,
+    #[allow(dead_code)]
     pub name: &'static str,
+    #[allow(dead_code)]
     pub description: &'static str,
     pub default_enabled: bool,
+    #[allow(dead_code)]
     pub default_severity: LintSeverity,
 }
 

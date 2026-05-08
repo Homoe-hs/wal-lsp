@@ -106,6 +106,35 @@ fn format_node(node: Node, source: &str, indent: u32, opts: &FormatOptions, outp
                 format_node(child, source, indent, opts, output);
             }
         }
+        "quoted" | "quasiquoted" | "unquote" | "unquote_splice" => {
+            let prefix = match kind {
+                "quoted" => "'",
+                "quasiquoted" => "`",
+                "unquote" => ",",
+                "unquote_splice" => ",@",
+                _ => "",
+            };
+            output.push_str(prefix);
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                if child.is_named() {
+                    format_node(child, source, indent, opts, output);
+                }
+            }
+        }
+        "timed_atom" => {
+            let mut cursor = node.walk();
+            let children: Vec<Node> = node.children(&mut cursor).collect();
+            if let Some(first) = children.first() {
+                format_node(*first, source, indent, opts, output);
+            }
+            output.push('@');
+            if children.len() > 1 {
+                for child in &children[1..] {
+                    format_node(*child, source, indent, opts, output);
+                }
+            }
+        }
         _ => {
             let text = source.get(node.byte_range()).unwrap_or("").trim().to_string();
             output.push_str(&text);

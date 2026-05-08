@@ -210,11 +210,12 @@ fn test_lsp_unknown_method_does_not_crash() {
         &mut session.stdin,
         r#"{"jsonrpc":"2.0","id":100,"method":"textDocument/unknownMethod","params":{}}"#,
     );
+    let _err_resp = session.recv(); // consume error response (now sent by the server)
 
     session.send(
         r#"{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file:///test.wal","languageId":"wal","version":1,"text":"(+ 1 2)"}}}"#,
     );
-    let _ = session.recv();
+    let _diag = session.recv(); // consume diagnostics notification
 
     session.shutdown_and_exit();
 }

@@ -248,17 +248,6 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_test_fst() {
-        let path = Path::new("/home/hesheng/Projects/wal-rust/test_data/test_10G_nocomp.fst");
-        if !path.exists() {
-            return;
-        }
-
-        let reader = FstReader::from_path(path).unwrap();
-        assert!(!reader.file.signals.is_empty(), "Should have signals");
-    }
-
-    #[test]
     fn test_decode_varint_edge_cases() {
         // min values
         assert_eq!(decode_varint(&[0x00]), Some((0, 1)));

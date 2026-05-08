@@ -47,11 +47,10 @@ pub fn handle_did_change(connection: &Connection, notif: Notification) -> Result
         .map_err(|e| anyhow::anyhow!("Failed to extract params: {:?}", e))?;
 
     let uri = params.text_document.uri.clone();
-    let text = params
-        .content_changes
-        .get(0)
-        .map(|c| c.text.clone())
-        .unwrap_or_default();
+    let text = match params.content_changes.into_iter().next() {
+        Some(c) => c.text,
+        None => return Ok(()),
+    };
 
     info!("Document changed: {:?}", uri);
 

@@ -27,12 +27,10 @@ pub fn handle(connection: &Connection, req: Request) -> Result<()> {
         .clone();
     let formatted = format_document_with_opts(&text, &opts);
 
-    let line_count = text.lines().count() as u32;
-
     let edit = TextEdit {
         range: Range::new(
             Position::new(0, 0),
-            Position::new(line_count.max(1) + 9999, 0),
+            Position::new(text.lines().count() as u32, 0),
         ),
         new_text: formatted,
     };

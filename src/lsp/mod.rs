@@ -2,7 +2,7 @@ mod handlers;
 
 use crate::workspace::{create_workspace, SharedWorkspace};
 use anyhow::Result;
-use lsp_server::{Connection, Message, Notification, Request};
+use lsp_server::{Connection, Message, Notification, Request, Response};
 use serde_json::to_value;
 use tracing::{error, info};
 
@@ -82,9 +82,7 @@ pub fn run() -> Result<()> {
                     error!("Error handling notification: {}", e);
                 }
             }
-            Message::Response(_) => {
-                // responses are typically used for async requests
-            }
+            Message::Response(_) => {}
         }
     }
 
@@ -92,7 +90,8 @@ pub fn run() -> Result<()> {
 }
 
 fn handle_request(connection: &Connection, req: Request) -> Result<()> {
-    match req.method.as_str() {
+    let id = req.id.clone();
+    let result = match req.method.as_str() {
         "textDocument/completion" => handlers::completion::handle(connection, req),
         "textDocument/hover" => handlers::hover::handle(connection, req),
         "textDocument/definition" => handlers::goto::handle(connection, req),
@@ -100,15 +99,19 @@ fn handle_request(connection: &Connection, req: Request) -> Result<()> {
         "textDocument/formatting" => handlers::formatting::handle(connection, req),
         "shutdown" => {
             info!("Received shutdown request");
-            let resp = lsp_server::Response::new_ok(req.id, serde_json::Value::Null);
-            connection.sender.send(lsp_server::Message::Response(resp))?;
-            Ok(())
+            let resp = Response::new_ok(req.id, serde_json::Value::Null);
+            Ok(connection.sender.send(Message::Response(resp))?)
         }
         _ => {
-            info!("Unhandled request: {}", req.method);
-            Ok(())
+            info!("Unhandled request method: {}", req.method);
+            Err(anyhow::anyhow!("Method not found: {}", req.method))
         }
+    };
+    if let Err(e) = result {
+        let resp = Response::new_err(id, -32601, format!("{}", e));
+        connection.sender.send(Message::Response(resp))?;
     }
+    Ok(())
 }
 
 fn handle_notification(connection: &Connection, notif: Notification) -> Result<()> {

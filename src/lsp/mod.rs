@@ -124,6 +124,9 @@ fn handle_notification(connection: &Connection, notif: Notification) -> Result<(
         "textDocument/didOpen" => handlers::diagnostics::handle_did_open(connection, notif),
         "textDocument/didChange" => handlers::diagnostics::handle_did_change(connection, notif),
         "textDocument/didClose" => handlers::diagnostics::handle_did_close(connection, notif),
+        "workspace/didChangeConfiguration" => {
+            handlers::config::handle_did_change_configuration(connection, notif)
+        }
         _ => {
             info!("Unhandled notification: {}", notif.method);
             Ok(())

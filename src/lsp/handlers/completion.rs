@@ -1,5 +1,5 @@
 use crate::lsp::WORKSPACE;
-use crate::wal::completions::{get_all_completions, CompletionKind as WalCompletionKind};
+use crate::wal::completions::{get_all_completions_ref, CompletionKind as WalCompletionKind};
 use anyhow::Result;
 use lsp_server::{Connection, Request, Response};
 use lsp_types::{CompletionItem, CompletionList, CompletionParams, CompletionResponse};
@@ -26,11 +26,11 @@ pub fn handle(connection: &Connection, req: Request) -> Result<()> {
             .unwrap_or_default()
     };
 
-    let mut items: Vec<CompletionItem> = get_all_completions()
-        .into_iter()
+    let mut items: Vec<CompletionItem> = get_all_completions_ref()
+        .iter()
         .filter(|c| prefix.is_empty() || c.label.starts_with(&prefix))
         .map(|c| CompletionItem {
-            label: c.label,
+            label: c.label.clone(),
             kind: Some(match c.kind {
                 WalCompletionKind::Keyword => lsp_types::CompletionItemKind::KEYWORD,
                 WalCompletionKind::Function => lsp_types::CompletionItemKind::FUNCTION,
@@ -38,8 +38,8 @@ pub fn handle(connection: &Connection, req: Request) -> Result<()> {
                 WalCompletionKind::Variable => lsp_types::CompletionItemKind::VARIABLE,
                 WalCompletionKind::Signal => lsp_types::CompletionItemKind::VARIABLE,
             }),
-            detail: c.detail,
-            documentation: c.documentation.map(|d| lsp_types::Documentation::String(d)),
+            detail: c.detail.clone(),
+            documentation: c.documentation.clone().map(|d| lsp_types::Documentation::String(d)),
             ..Default::default()
         })
         .collect();

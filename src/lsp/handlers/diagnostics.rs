@@ -1,10 +1,11 @@
 use crate::lsp::WORKSPACE;
-use crate::wal::parser::WalParser;
+use crate::wal::parser::WAL_PARSER;
 use crate::wal::symbols::extract_symbols_from_node;
 use anyhow::Result;
 use lsp_server::{Connection, Notification};
 use lsp_types::{Diagnostic, PublishDiagnosticsParams};
 use std::collections::HashSet;
+use tree_sitter::Tree;
 use tracing::info;
 
 // 旧 KNOWN_SYMBOLS / KNOWN_ARITIES 已迁移到 wal::rules 模块
@@ -21,12 +22,16 @@ pub fn handle_did_open(connection: &Connection, notif: Notification) -> Result<(
 
     info!("Document opened: {:?}", uri);
 
+    let tree = {
+        let mut parser = WAL_PARSER.lock().unwrap_or_else(|e| e.into_inner());
+        parser.parse_incremental(&text, None)
+    };
+    let diagnostics = analyze_document_from_tree(&text, &tree);
     {
         let mut ws = WORKSPACE.write().unwrap_or_else(|e| e.into_inner());
-        ws.open_document_with_version(uri.clone(), text.clone(), version);
+        ws.waveform_manager.auto_load_from_source(&text);
+        ws.open_document_with_tree(uri.clone(), text, tree);
     }
-
-    let diagnostics = analyze_document(&text);
 
     let params = PublishDiagnosticsParams {
         uri,
@@ -56,12 +61,16 @@ pub fn handle_did_change(connection: &Connection, notif: Notification) -> Result
 
     info!("Document changed: {:?}", uri);
 
-    {
+    let diagnostics = {
         let mut ws = WORKSPACE.write().unwrap_or_else(|e| e.into_inner());
-        ws.update_document(&uri, text.clone());
-    }
-
-    let diagnostics = analyze_document(&text);
+        ws.waveform_manager.auto_load_from_source(&text);
+        ws.update_document_with_tree(&uri, text.clone());
+        let doc = ws.get_document(&uri).unwrap();
+        doc.tree.as_ref().map_or_else(
+            || analyze_document(&text),
+            |tree| analyze_document_from_tree(&doc.text, tree),
+        )
+    };
 
     let params = PublishDiagnosticsParams {
         uri,
@@ -103,24 +112,24 @@ pub fn handle_did_close(connection: &Connection, notif: Notification) -> Result<
 }
 
 pub fn analyze_document(text: &str) -> Vec<Diagnostic> {
-    let mut parser = WalParser::new();
+    let mut parser = WAL_PARSER.lock().unwrap_or_else(|e| e.into_inner());
     let tree = parser.parse_with_errors(text);
+    analyze_document_from_tree(text, &tree)
+}
 
+pub fn analyze_document_from_tree(text: &str, tree: &Tree) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
-    // 0. Extract user-defined symbols
     let user_symbols: HashSet<String> = extract_symbols_from_node(tree.root_node(), text)
         .into_iter()
         .map(|s| s.name)
         .collect();
 
-    // 1. Syntax errors (from tree-sitter ERROR nodes)
     if tree.root_node().has_error() {
         let mut cursor = tree.walk();
         collect_syntax_errors(&mut cursor, text, &mut diagnostics);
     }
 
-    // 2. Rule-based diagnostics (arity, unknown symbols, structure)
     diagnostics.extend(run_rules(tree.root_node(), text, &user_symbols));
 
     diagnostics
@@ -128,6 +137,7 @@ pub fn analyze_document(text: &str) -> Vec<Diagnostic> {
 
 /// 使用规则系统运行语义检查
 fn run_rules(root: tree_sitter::Node, source: &str, user_symbols: &HashSet<String>) -> Vec<Diagnostic> {
+    use crate::config::CONFIG;
     use crate::wal::rules::{LintContext, RuleRegistry, parse_suppressions};
     use crate::wal::rules::arity::ArityRule;
     use crate::wal::rules::unknown_symbol::UnknownSymbolRule;
@@ -145,7 +155,14 @@ fn run_rules(root: tree_sitter::Node, source: &str, user_symbols: &HashSet<Strin
         line_suppressions: &suppressions,
     };
 
-    registry.check_all(root, &ctx)
+    let mut results = registry.check_all(root, &ctx);
+
+    // Apply config-based severity overrides
+    if let Ok(config) = CONFIG.read() {
+        config.apply_to_diagnostics(&mut results);
+    }
+
+    results
 }
 
 fn collect_syntax_errors(

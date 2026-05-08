@@ -28,6 +28,20 @@ impl WaveformManager {
         Ok(())
     }
 
+    pub fn auto_load_from_source(&mut self, source: &str) {
+        let paths = Self::extract_load_calls(source);
+        for p in &paths {
+            let path = Path::new(p);
+            if path.exists() {
+                let _ = self.load_vcd(path);
+            }
+        }
+        let sigs = Self::extract_defsig_signals(source);
+        for s in sigs {
+            self.add_virtual_signal(s);
+        }
+    }
+
     pub fn add_virtual_signal(&mut self, name: String) {
         if !self.virtual_signals.contains(&name) {
             self.virtual_signals.push(name);

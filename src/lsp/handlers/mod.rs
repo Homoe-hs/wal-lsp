@@ -1,5 +1,6 @@
 pub mod completion;
 pub mod completion_resolve;
+pub mod config;
 pub mod diagnostics;
 pub mod formatting;
 pub mod goto;

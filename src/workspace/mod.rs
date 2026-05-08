@@ -1,21 +1,29 @@
 mod waveform;
 
+use crate::wal::parser::WAL_PARSER;
 use crate::wal::symbols::{WalSymbol, extract_symbols};
 use lsp_types::{Range, Uri};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
+use tree_sitter::Tree;
 
 #[derive(Debug, Clone)]
 pub struct DocumentInfo {
     pub uri: Uri,
     pub text: String,
     pub version: i32,
+    pub tree: Option<Tree>,
 }
 
 impl DocumentInfo {
     pub fn new(uri: Uri, text: String) -> Self {
-        Self { uri, text, version: 1 }
+        Self {
+            uri,
+            text,
+            version: 1,
+            tree: None,
+        }
     }
 }
 
@@ -29,12 +37,14 @@ pub struct SymbolLocation {
 #[derive(Debug)]
 pub struct SymbolIndex {
     pub by_name: HashMap<String, Vec<SymbolLocation>>,
+    doc_symbols: HashMap<Uri, Vec<String>>,
 }
 
 impl SymbolIndex {
     pub fn new() -> Self {
         Self {
             by_name: HashMap::new(),
+            doc_symbols: HashMap::new(),
         }
     }
 
@@ -48,6 +58,10 @@ impl SymbolIndex {
             .entry(symbol.name.clone())
             .or_insert_with(Vec::new)
             .push(location);
+        self.doc_symbols
+            .entry(uri.clone())
+            .or_default()
+            .push(symbol.name.clone());
     }
 
     pub fn index_document(&mut self, uri: &Uri, source: &str) {
@@ -58,10 +72,16 @@ impl SymbolIndex {
     }
 
     pub fn remove_document(&mut self, uri: &Uri) {
-        self.by_name.retain(|_, locations| {
-            locations.retain(|loc| &loc.uri != uri);
-            !locations.is_empty()
-        });
+        if let Some(names) = self.doc_symbols.remove(uri) {
+            for name in names {
+                if let Some(locations) = self.by_name.get_mut(&name) {
+                    locations.retain(|loc| &loc.uri != uri);
+                    if locations.is_empty() {
+                        self.by_name.remove(&name);
+                    }
+                }
+            }
+        }
     }
 
     pub fn find(&self, name: &str) -> Vec<SymbolLocation> {
@@ -69,6 +89,10 @@ impl SymbolIndex {
             .get(name)
             .cloned()
             .unwrap_or_default()
+    }
+
+    pub fn all_uris(&self) -> impl Iterator<Item = &Uri> {
+        self.doc_symbols.keys()
     }
 }
 
@@ -113,10 +137,30 @@ impl Workspace {
         self.symbol_index.index_document(&uri, &text);
     }
 
+    pub fn open_document_with_tree(&mut self, uri: Uri, text: String, tree: Tree) {
+        let mut doc = DocumentInfo::new(uri.clone(), text.clone());
+        doc.tree = Some(tree);
+        self.documents.insert(uri.clone(), doc);
+        self.symbol_index.index_document(&uri, &text);
+    }
+
     pub fn update_document(&mut self, uri: &Uri, text: String) {
         if let Some(doc) = self.documents.get_mut(uri) {
             doc.text = text.clone();
             doc.version += 1;
+        }
+        self.symbol_index.remove_document(uri);
+        self.symbol_index.index_document(uri, &text);
+    }
+
+    pub fn update_document_with_tree(&mut self, uri: &Uri, text: String) {
+        let old_tree = self.documents.get(uri).and_then(|d| d.tree.clone());
+        let mut parser = WAL_PARSER.lock().unwrap_or_else(|e| e.into_inner());
+        let new_tree = parser.parse_incremental(&text, old_tree.as_ref());
+        if let Some(doc) = self.documents.get_mut(uri) {
+            doc.text = text.clone();
+            doc.version += 1;
+            doc.tree = Some(new_tree);
         }
         self.symbol_index.remove_document(uri);
         self.symbol_index.index_document(uri, &text);
@@ -276,16 +320,13 @@ mod tests {
         ws.open_document(uri2.clone(), "(defun main-func [n] (factorial n))".to_string());
         ws.open_document(uri3.clone(), "(define test-var 99)".to_string());
 
-        // All symbols should be findable
         assert_eq!(ws.symbol_index.find("library-fn").len(), 1);
         assert_eq!(ws.symbol_index.find("main-func").len(), 1);
         assert_eq!(ws.symbol_index.find("test-var").len(), 1);
 
-        // Close one document, its symbols should be gone
         ws.close_document(&uri2);
         assert!(ws.symbol_index.find("main-func").is_empty());
 
-        // Other documents still indexed
         assert_eq!(ws.symbol_index.find("library-fn").len(), 1);
         assert_eq!(ws.symbol_index.find("test-var").len(), 1);
 
@@ -314,23 +355,13 @@ mod tests {
         let text = "(define tb.clk 42)\n(print \"hello\")\n;; comment\n~clk\n#valid\nCG";
         ws.open_document(uri.clone(), text.to_string());
 
-        // Regular symbol
         assert_eq!(ws.get_word_at_position(&uri, 0, 8), Some("tb.clk".to_string()));
-        // Scoped symbol
         assert_eq!(ws.get_word_at_position(&uri, 3, 1), Some("~clk".to_string()));
-        // Grouped symbol
         assert_eq!(ws.get_word_at_position(&uri, 4, 1), Some("#valid".to_string()));
-        // Special var CG
         assert_eq!(ws.get_word_at_position(&uri, 5, 1), Some("CG".to_string()));
-        // String literal characters are captured (they're alphabetic)
-        assert_eq!(ws.get_word_at_position(&uri, 1, 9), Some("hello".to_string()),
-            "String content characters should be captured as word");
-        // After the closing quote, no word
-        assert!(ws.get_word_at_position(&uri, 1, 14).is_none(),
-            "After closing quote should be None");
-        // Comment text is still regular text in the document
-        assert_eq!(ws.get_word_at_position(&uri, 2, 3), Some("comment".to_string()),
-            "Comment body text is captured as regular word");
+        assert_eq!(ws.get_word_at_position(&uri, 1, 9), Some("hello".to_string()));
+        assert!(ws.get_word_at_position(&uri, 1, 14).is_none());
+        assert_eq!(ws.get_word_at_position(&uri, 2, 3), Some("comment".to_string()));
     }
 
     #[test]
@@ -358,9 +389,7 @@ mod tests {
         assert_eq!(ws.symbol_index.find("result").len(), 1);
         assert_eq!(ws.symbol_index.find("main").len(), 1);
 
-        // Same symbol name in multiple files
-        assert_eq!(ws.symbol_index.find("cube").len(), 1,
-            "Only lib.wal defines cube");
+        assert_eq!(ws.symbol_index.find("cube").len(), 1);
     }
 
     #[test]
@@ -410,18 +439,15 @@ mod tests {
             assert_eq!(ws.symbol_index.find(&format!("var{}", i)).len(), 1);
         }
 
-        // Close half
         for i in 0..n/2 {
             let uri = Uri::from_str(&format!("file:///doc{}.wal", i)).unwrap();
             ws.close_document(&uri);
         }
         assert_eq!(ws.documents.len(), n - n/2);
 
-        // Remaining symbols still findable
         for i in n/2..n {
             assert_eq!(ws.symbol_index.find(&format!("var{}", i)).len(), 1);
         }
-        // Closed symbols gone
         for i in 0..n/2 {
             assert!(ws.symbol_index.find(&format!("var{}", i)).is_empty());
         }
@@ -439,9 +465,8 @@ mod tests {
         ws.open_document(uri3.clone(), "(define common 3)".to_string());
 
         let locations = ws.symbol_index.find("common");
-        assert_eq!(locations.len(), 3, "Same symbol in 3 files should have 3 locations");
+        assert_eq!(locations.len(), 3);
 
-        // Close one, should drop to 2
         ws.close_document(&uri1);
         assert_eq!(ws.symbol_index.find("common").len(), 2);
     }
@@ -488,13 +513,56 @@ mod tests {
     fn test_get_word_at_position_operators() {
         let mut ws = Workspace::new();
         let uri = Uri::from_str("file:///test.wal").unwrap();
-        // get_word_at_position captures alphanumeric + _ . - / # ~ chars only
-        // Operators like + - * / are NOT captured by this function
         ws.open_document(uri.clone(), "(add 1 2)\n(sub 3 4)\n(mul 5 6)\n(div 7 8)".to_string());
 
         assert_eq!(ws.get_word_at_position(&uri, 0, 1), Some("add".to_string()));
         assert_eq!(ws.get_word_at_position(&uri, 1, 1), Some("sub".to_string()));
         assert_eq!(ws.get_word_at_position(&uri, 2, 1), Some("mul".to_string()));
         assert_eq!(ws.get_word_at_position(&uri, 3, 1), Some("div".to_string()));
+    }
+
+    #[test]
+    fn test_open_document_with_tree_parses() {
+        let mut ws = Workspace::new();
+        let uri = Uri::from_str("file:///test.wal").unwrap();
+        {
+            let mut parser = WAL_PARSER.lock().unwrap_or_else(|e| e.into_inner());
+            let tree = parser.parse_incremental("(define x 1)", None);
+            ws.open_document_with_tree(uri.clone(), "(define x 1)".to_string(), tree);
+        }
+        let doc = ws.get_document(&uri).unwrap();
+        assert!(doc.tree.is_some());
+        assert_eq!(doc.text, "(define x 1)");
+    }
+
+    #[test]
+    fn test_update_document_with_tree() {
+        let mut ws = Workspace::new();
+        let uri = Uri::from_str("file:///test.wal").unwrap();
+        {
+            let mut parser = WAL_PARSER.lock().unwrap_or_else(|e| e.into_inner());
+            let tree = parser.parse_incremental("(define x 1)", None);
+            ws.open_document_with_tree(uri.clone(), "(define x 1)".to_string(), tree);
+        }
+        ws.update_document_with_tree(&uri, "(define x 42)".to_string());
+        let doc = ws.get_document(&uri).unwrap();
+        assert!(doc.tree.is_some());
+        assert_eq!(doc.text, "(define x 42)");
+        assert_eq!(doc.version, 2);
+    }
+
+    #[test]
+    fn test_remove_document_selective() {
+        let mut ws = Workspace::new();
+        let uri = Uri::from_str("file:///test.wal").unwrap();
+
+        ws.open_document(uri.clone(), "(define a 1)\n(define b 2)".to_string());
+        assert_eq!(ws.symbol_index.find("a").len(), 1);
+        assert_eq!(ws.symbol_index.find("b").len(), 1);
+
+        ws.close_document(&uri);
+        assert!(ws.symbol_index.find("a").is_empty());
+        assert!(ws.symbol_index.find("b").is_empty());
+        assert!(ws.symbol_index.doc_symbols.is_empty());
     }
 }

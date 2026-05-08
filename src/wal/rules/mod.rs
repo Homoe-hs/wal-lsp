@@ -79,7 +79,12 @@ impl RuleRegistry {
 
     pub fn register(&mut self, rule: Box<dyn Rule>) {
         let id = rule.descriptor().id.to_string();
-        self.enabled.entry(id).or_insert(rule.descriptor().default_enabled);
+        let default = rule.descriptor().default_enabled;
+        let enabled = crate::config::CONFIG
+            .read()
+            .map(|cfg| cfg.is_rule_enabled(&id, default))
+            .unwrap_or(default);
+        self.enabled.entry(id).or_insert(enabled);
         self.rules.push(rule);
     }
 
@@ -93,7 +98,13 @@ impl RuleRegistry {
             let desc = rule.descriptor();
             if !self.is_enabled(desc.id) { continue; }
             if ctx.is_suppressed(node.start_position().row as u32, desc.id) { continue; }
-            all.extend(rule.check(node, ctx));
+            let mut diags = rule.check(node, ctx);
+            for d in diags.iter_mut() {
+                if d.source.is_none() {
+                    d.source = Some(format!("wal-lsp:{}", desc.id).into());
+                }
+            }
+            all.extend(diags);
         }
         all
     }

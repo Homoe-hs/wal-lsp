@@ -219,6 +219,10 @@ pub fn get_all_completions() -> Vec<CompletionItem> {
     ALL_COMPLETIONS.clone()
 }
 
+pub fn get_all_completions_ref() -> &'static Vec<CompletionItem> {
+    &ALL_COMPLETIONS
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;

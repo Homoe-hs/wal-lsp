@@ -1,3 +1,4 @@
+pub mod config;
 mod lsp;
 mod wal;
 pub mod workspace;

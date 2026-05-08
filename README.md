@@ -10,15 +10,17 @@ Language Server Protocol implementation for [WAL (Waveform Analysis Language)](h
 
 | 功能 | 说明 |
 |------|------|
-| **Diagnostics** | 语法错误 + 语义错误检测 (arity、未知符号、结构校验)，发送文档版本号 |
+| **Diagnostics** | 语法错误 + 语义错误检测 (arity、未知符号、结构校验)，规则可配 severity/enabled |
 | **Completion** | 140+ 内建补全 + VCD/CSV/FST 信号名补全 + `completionItem/resolve` 延迟加载文档 |
 | **Hover** | 悬停显示函数文档、签名和示例 |
 | **Go-to-Definition** | 跨文件符号跳转 |
 | **Find References** | 跨文件查找符号引用 |
 | **Document Symbols** | 符号树 (define / defun / defmacro / defsig / fn) |
 | **Workspace Symbols** | 跨文件符号搜索 |
+| **Configuration** | `workspace/didChangeConfiguration` — 规则 severity、启用状态、缩进空格数 |
 | **信号名补全** | 从 VCD/CSV/FST 文件自动加载信号列表，支持前缀和模糊匹配 |
-| **全量同步** | `textDocument/didChange` 全量文档同步 |
+| **增量解析** | tree-sitter 增量解析 + 树缓存，避免每次全文重解析 |
+| **波形自动加载** | 在 `(load ...)` 出现时自动加载 VCD/CSV/FST 文件 |
 
 ### Semantic Error Checking
 
@@ -178,21 +180,26 @@ printf 'Content-Length: 75\r\n\r\n{"jsonrpc":"2.0","id":1,"method":"initialize",
 ```
 wal-lsp/
 ├── src/
+│   ├── config.rs                # 全局配置 (LspConfig, RuleConfig, FormatConfig)
 │   ├── main.rs                  # LSP entry point (clap: --help/--version)
 │   ├── workspace/
-│   │   ├── mod.rs               # Workspace, DocumentInfo, SymbolIndex (跨文件)
+│   │   ├── mod.rs               # Workspace, DocumentInfo, SymbolIndex (跨文件, 树缓存)
 │   │   └── waveform.rs          # WaveformManager (VCD/CSV/FST 信号解析 & 查找)
 │   ├── lsp/
 │   │   ├── mod.rs               # LSP server (lsp-server, LazyLock workspace)
 │   │   └── handlers/
 │   │       ├── diagnostics.rs   # 语法 + 语义错误检测 (☆ 核心)
 │   │       ├── completion.rs    # 140+ 内建补全 + 波形信号名补全
+│   │       ├── completion_resolve.rs # completionItem/resolve 延迟加载
+│   │       ├── config.rs        # workspace/didChangeConfiguration
 │   │       ├── hover.rs         # 函数文档 (rich docs + fallback)
 │   │       ├── goto.rs          # 跨文件 go-to-definition
+│   │       ├── formatting.rs    # 代码格式化
+│   │       ├── references.rs    # textDocument/references
 │   │       ├── symbols.rs       # 文档符号树
-│   │       └── formatting.rs    # 代码格式化
+│   │       └── workspace_symbol.rs # workspace/symbol
 │   └── wal/                     # WAL 语言核心
-│       ├── parser.rs            # Tree-sitter wrapper
+│       ├── parser.rs            # Tree-sitter wrapper (全局单例 + 增量解析)
 │       ├── completions.rs       # 140+ 补全项 (OPERATORS/SPECIAL_FORMS/BUILTIN_FUNCTIONS/MACROS)
 │       ├── docs.rs              # 丰富函数文档 (签名+描述+示例, 60+ 项)
 │       ├── symbols.rs           # AST → WalSymbol 提取 (define/defun/defmacro/defsig/fn)
@@ -228,11 +235,13 @@ wal-lsp/
 | **RwLock 毒化保护** | 所有 `.read()`/`.write()` 使用 `unwrap_or_else(\|e\| e.into_inner())` |
 | **规则引擎** | `Rule` trait + `RuleRegistry`，规则可独立注册/启用/抑制 |
 | **规则抑制** | `;; lint_off arity-check` / `;; lint_on all` 注释级控制 |
-| **全量同步** | `TextDocumentSyncKind::FULL`，每次 didChange 发送完整文档 |
+| **全量同步 + 增量解析** | `TextDocumentSyncKind::FULL`，缓存旧树进行 tree-sitter 增量解析 |
 | **波形信号补全** | 优先前缀匹配 → 模糊子串匹配，支持 VCD/CSV/FST |
+| **波形自动加载** | `didOpen`/`didChange` 时自动扫描 `(load ...)` 和 `(defsig ...)` |
 | **FST 解析** | 纯 Rust 实现，支持 LZ4 和 Zlib 压缩块，零外部依赖 |
 | **顶层检测** | `is_toplevel` 检查避免递归体变量误报 |
 | **格式化** | Tree-sitter AST 驱动，可配置缩进空格数 |
+| **配置系统** | `didChangeConfiguration` — 规则 severity/enabled 覆盖 + 格式化选项 |
 
 ---
 

@@ -1,9 +1,11 @@
 use tree_sitter::{Parser, Tree};
 
-#[allow(dead_code)]
 pub struct WalParser {
     parser: Parser,
 }
+
+pub static WAL_PARSER: std::sync::LazyLock<std::sync::Mutex<WalParser>> =
+    std::sync::LazyLock::new(|| std::sync::Mutex::new(WalParser::new()));
 
 impl WalParser {
     pub fn new() -> Self {
@@ -14,7 +16,6 @@ impl WalParser {
         WalParser { parser }
     }
 
-    #[allow(dead_code)]
     pub fn parse(&mut self, source: &str) -> Result<Tree, String> {
         self.parser
             .parse(source, None)
@@ -23,12 +24,17 @@ impl WalParser {
 
     pub fn parse_with_errors(&mut self, source: &str) -> Tree {
         self.parser.parse(source, None).unwrap_or_else(|| {
-            // Fallback: try a fresh parser; if that fails, return empty parse
             let mut parser = Parser::new();
             let _ = parser.set_language(&crate::wal::language());
             parser.parse(source, None)
                 .unwrap_or_else(|| parser.parse("", None)
                     .expect("tree-sitter must be able to parse empty source"))
+        })
+    }
+
+    pub fn parse_incremental(&mut self, source: &str, old_tree: Option<&Tree>) -> Tree {
+        self.parser.parse(source, old_tree).unwrap_or_else(|| {
+            self.parse_with_errors(source)
         })
     }
 }
@@ -39,7 +45,6 @@ impl Default for WalParser {
     }
 }
 
-#[allow(dead_code)]
 pub fn get_node_text(node: tree_sitter::Node, source: &str) -> Option<String> {
     source.get(node.byte_range()).map(|s| s.to_string())
 }
@@ -69,6 +74,23 @@ mod tests {
 (define add (fn [x y] (+ x y)))
 "#;
         let tree = parser.parse(source).unwrap();
+        assert!(!tree.root_node().has_error());
+    }
+
+    #[test]
+    fn test_parse_incremental() {
+        let mut parser = WalParser::new();
+        let tree1 = parser.parse_incremental("(+ 1 2)", None);
+        assert!(!tree1.root_node().has_error());
+
+        let tree2 = parser.parse_incremental("(+ 1 2 3)", Some(&tree1));
+        assert!(!tree2.root_node().has_error());
+    }
+
+    #[test]
+    fn test_parse_incremental_from_empty() {
+        let mut parser = WalParser::new();
+        let tree = parser.parse_incremental("(define x 1)", None);
         assert!(!tree.root_node().has_error());
     }
 }

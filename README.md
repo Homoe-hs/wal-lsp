@@ -10,11 +10,13 @@ Language Server Protocol implementation for [WAL (Waveform Analysis Language)](h
 
 | 功能 | 说明 |
 |------|------|
-| **Diagnostics** | 语法错误 (tree-sitter ERROR 节点) + 语义错误检测 (arity、未知符号、结构校验) |
-| **Completion** | 140+ 内建函数/运算符/宏/特殊变量补全 + VCD/CSV/FST 信号名补全 |
+| **Diagnostics** | 语法错误 + 语义错误检测 (arity、未知符号、结构校验)，发送文档版本号 |
+| **Completion** | 140+ 内建补全 + VCD/CSV/FST 信号名补全 + `completionItem/resolve` 延迟加载文档 |
 | **Hover** | 悬停显示函数文档、签名和示例 |
 | **Go-to-Definition** | 跨文件符号跳转 |
+| **Find References** | 跨文件查找符号引用 |
 | **Document Symbols** | 符号树 (define / defun / defmacro / defsig / fn) |
+| **Workspace Symbols** | 跨文件符号搜索 |
 | **信号名补全** | 从 VCD/CSV/FST 文件自动加载信号列表，支持前缀和模糊匹配 |
 | **全量同步** | `textDocument/didChange` 全量文档同步 |
 

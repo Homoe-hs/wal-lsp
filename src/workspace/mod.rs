@@ -106,6 +106,13 @@ impl Workspace {
         self.symbol_index.index_document(&uri, &text);
     }
 
+    pub fn open_document_with_version(&mut self, uri: Uri, text: String, version: i32) {
+        let mut doc = DocumentInfo::new(uri.clone(), text.clone());
+        doc.version = version;
+        self.documents.insert(uri.clone(), doc);
+        self.symbol_index.index_document(&uri, &text);
+    }
+
     pub fn update_document(&mut self, uri: &Uri, text: String) {
         if let Some(doc) = self.documents.get_mut(uri) {
             doc.text = text.clone();

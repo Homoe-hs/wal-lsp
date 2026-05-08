@@ -46,7 +46,9 @@ pub fn run() -> Result<()> {
         }),
         hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
         definition_provider: Some(lsp_types::OneOf::Left(true)),
+        references_provider: Some(lsp_types::OneOf::Left(true)),
         document_symbol_provider: Some(lsp_types::OneOf::Left(true)),
+        workspace_symbol_provider: Some(lsp_types::OneOf::Left(true)),
         document_formatting_provider: Some(lsp_types::OneOf::Left(true)),
         ..Default::default()
     })
@@ -93,9 +95,12 @@ fn handle_request(connection: &Connection, req: Request) -> Result<()> {
     let id = req.id.clone();
     let result = match req.method.as_str() {
         "textDocument/completion" => handlers::completion::handle(connection, req),
+        "completionItem/resolve" => handlers::completion_resolve::handle(connection, req),
         "textDocument/hover" => handlers::hover::handle(connection, req),
         "textDocument/definition" => handlers::goto::handle(connection, req),
+        "textDocument/references" => handlers::references::handle(connection, req),
         "textDocument/documentSymbol" => handlers::symbols::handle(connection, req),
+        "workspace/symbol" => handlers::workspace_symbol::handle(connection, req),
         "textDocument/formatting" => handlers::formatting::handle(connection, req),
         "shutdown" => {
             info!("Received shutdown request");

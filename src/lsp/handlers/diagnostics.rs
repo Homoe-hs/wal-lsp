@@ -17,12 +17,13 @@ pub fn handle_did_open(connection: &Connection, notif: Notification) -> Result<(
 
     let uri = params.text_document.uri.clone();
     let text = params.text_document.text.clone();
+    let version = params.text_document.version;
 
     info!("Document opened: {:?}", uri);
 
     {
         let mut ws = WORKSPACE.write().unwrap_or_else(|e| e.into_inner());
-        ws.open_document(uri.clone(), text.clone());
+        ws.open_document_with_version(uri.clone(), text.clone(), version);
     }
 
     let diagnostics = analyze_document(&text);
@@ -30,7 +31,7 @@ pub fn handle_did_open(connection: &Connection, notif: Notification) -> Result<(
     let params = PublishDiagnosticsParams {
         uri,
         diagnostics,
-        version: None,
+        version: Some(version),
     };
 
     let notification = Notification::new("textDocument/publishDiagnostics".to_string(), params);
@@ -47,6 +48,7 @@ pub fn handle_did_change(connection: &Connection, notif: Notification) -> Result
         .map_err(|e| anyhow::anyhow!("Failed to extract params: {:?}", e))?;
 
     let uri = params.text_document.uri.clone();
+    let version = params.text_document.version;
     let text = match params.content_changes.into_iter().next() {
         Some(c) => c.text,
         None => return Ok(()),
@@ -64,7 +66,7 @@ pub fn handle_did_change(connection: &Connection, notif: Notification) -> Result
     let params = PublishDiagnosticsParams {
         uri,
         diagnostics,
-        version: None,
+        version: Some(version),
     };
 
     let notification = Notification::new("textDocument/publishDiagnostics".to_string(), params);

@@ -10,11 +10,13 @@ Language Server Protocol implementation for [WAL (Waveform Analysis Language)](h
 
 | 功能 | 说明 |
 |------|------|
-| **Diagnostics** | 语法错误 + 语义错误检测 (arity、未知符号、结构校验)，规则可配 severity/enabled |
+| **Diagnostics** | 语法错误 + 语义错误检测 (arity、未知符号、结构校验)，规则可配 severity/enabled，支持推/拉两种模式 |
 | **Completion** | 140+ 内建补全 + VCD/CSV/FST 信号名补全 + `completionItem/resolve` 延迟加载文档 |
 | **Hover** | 悬停显示函数文档、签名和示例 |
 | **Go-to-Definition** | 跨文件符号跳转 |
 | **Find References** | 跨文件查找符号引用 |
+| **Document Highlight** | 光标所在符号高亮 |
+| **Folding Range** | S-表达式代码折叠 |
 | **Document Symbols** | 符号树 (define / defun / defmacro / defsig / fn) |
 | **Workspace Symbols** | 跨文件符号搜索 |
 | **Configuration** | `workspace/didChangeConfiguration` — 规则 severity、启用状态、缩进空格数 |

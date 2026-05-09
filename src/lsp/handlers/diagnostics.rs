@@ -65,11 +65,13 @@ pub fn handle_did_change(connection: &Connection, notif: Notification) -> Result
         let mut ws = WORKSPACE.write().unwrap_or_else(|e| e.into_inner());
         ws.waveform_manager.auto_load_from_source(&text);
         ws.update_document_with_tree(&uri, text.clone());
-        let doc = ws.get_document(&uri).unwrap();
-        doc.tree.as_ref().map_or_else(
-            || analyze_document(&text),
-            |tree| analyze_document_from_tree(&doc.text, tree),
-        )
+        match ws.get_document(&uri) {
+            Some(doc) => doc.tree.as_ref().map_or_else(
+                || analyze_document(&text),
+                |tree| analyze_document_from_tree(&doc.text, tree),
+            ),
+            None => analyze_document(&text),
+        }
     };
 
     let params = PublishDiagnosticsParams {
@@ -94,12 +96,17 @@ pub fn handle_did_close(connection: &Connection, notif: Notification) -> Result<
     let uri = params.text_document.uri.clone();
     info!("Document closed: {:?}", uri);
 
-    {
+    let was_open = {
         let mut ws = WORKSPACE.write().unwrap_or_else(|e| e.into_inner());
+        let existed = ws.documents.contains_key(&uri);
         ws.close_document(&uri);
+        existed
+    };
+
+    if !was_open {
+        return Ok(());
     }
 
-    // Clear diagnostics for closed document
     let params = PublishDiagnosticsParams {
         uri,
         diagnostics: vec![],
@@ -157,7 +164,6 @@ fn run_rules(root: tree_sitter::Node, source: &str, user_symbols: &HashSet<Strin
 
     let mut results = registry.check_all(root, &ctx);
 
-    // Apply config-based severity overrides
     if let Ok(config) = CONFIG.read() {
         config.apply_to_diagnostics(&mut results);
     }
@@ -181,7 +187,8 @@ fn collect_syntax_errors(
                 lsp_types::Position::new(end.row as u32, end.column as u32),
             );
             let truncated = if error_node_text.len() > 80 {
-                format!("{}...", &error_node_text[..77])
+                let truncated: String = error_node_text.chars().take(77).collect();
+                format!("{}...", truncated)
             } else {
                 error_node_text.to_string()
             };

@@ -98,7 +98,13 @@ fn get_signal_completions(uri: &lsp_types::Uri, position: lsp_types::Position) -
 }
 
 fn extract_prefix(line: &str, cursor_col: usize) -> String {
-    let before = &line[..cursor_col.min(line.len())];
+    let byte_pos = line
+        .char_indices()
+        .map(|(i, _)| i)
+        .chain(std::iter::once(line.len()))
+        .nth(cursor_col)
+        .unwrap_or(line.len());
+    let before = &line[..byte_pos];
     let mut end = before.len();
     while end > 0 {
         let ch = before[..end].chars().last().unwrap();
@@ -109,7 +115,6 @@ fn extract_prefix(line: &str, cursor_col: usize) -> String {
         }
     }
     let prefix = before[end..].to_string();
-    // Don't filter when prefix is purely operator characters (e.g., just typed "+")
     let has_alpha = prefix.chars().any(|c| c.is_alphanumeric());
     if !has_alpha && !prefix.is_empty() {
         String::new()
@@ -119,13 +124,19 @@ fn extract_prefix(line: &str, cursor_col: usize) -> String {
 }
 
 fn extract_signal_prefix(line: &str, cursor_pos: usize) -> String {
-    let before_cursor = &line[..cursor_pos.min(line.len())];
+    let byte_pos = line
+        .char_indices()
+        .map(|(i, _)| i)
+        .chain(std::iter::once(line.len()))
+        .nth(cursor_pos)
+        .unwrap_or(line.len());
+    let before_cursor = &line[..byte_pos];
 
     let mut end = before_cursor.len();
     while end > 0 {
         let ch = before_cursor[..end].chars().last().unwrap();
         if ch.is_alphanumeric() || ch == '_' || ch == '-' || ch == '.' || ch == '/' {
-            end -= 1;
+            end -= ch.len_utf8();
         } else {
             break;
         }

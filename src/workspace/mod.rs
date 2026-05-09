@@ -2,7 +2,7 @@ mod waveform;
 
 use crate::wal::parser::WAL_PARSER;
 use crate::wal::symbols::{WalSymbol, extract_symbols};
-use lsp_types::{Range, Uri};
+use lsp_types::{Range, SymbolKind, Uri};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
@@ -32,6 +32,7 @@ pub struct SymbolLocation {
     pub uri: Uri,
     pub range: Range,
     pub name: String,
+    pub kind: SymbolKind,
 }
 
 #[derive(Debug)]
@@ -53,6 +54,7 @@ impl SymbolIndex {
             uri: uri.clone(),
             range: symbol.range,
             name: symbol.name.clone(),
+            kind: symbol.kind,
         };
         self.by_name
             .entry(symbol.name.clone())
@@ -154,9 +156,11 @@ impl Workspace {
     }
 
     pub fn update_document_with_tree(&mut self, uri: &Uri, text: String) {
-        let old_tree = self.documents.get(uri).and_then(|d| d.tree.clone());
-        let mut parser = WAL_PARSER.lock().unwrap_or_else(|e| e.into_inner());
-        let new_tree = parser.parse_incremental(&text, old_tree.as_ref());
+        let new_tree = {
+            let old_tree = self.documents.get(uri).and_then(|d| d.tree.clone());
+            let mut parser = WAL_PARSER.lock().unwrap_or_else(|e| e.into_inner());
+            parser.parse_incremental(&text, old_tree.as_ref())
+        };
         if let Some(doc) = self.documents.get_mut(uri) {
             doc.text = text.clone();
             doc.version += 1;
@@ -180,18 +184,28 @@ impl Workspace {
         let lines: Vec<&str> = doc.text.lines().collect();
         let line_str = lines.get(line as usize)?;
 
-        let mut start = character as usize;
-        let mut end = character as usize;
+        let byte_pos = line_str
+            .char_indices()
+            .map(|(i, _)| i)
+            .chain(std::iter::once(line_str.len()))
+            .nth(character as usize)
+            .unwrap_or(line_str.len());
 
-        while start > 0 && !line_str.is_char_boundary(start - 1) {
-            start -= 1;
+        let mut start = byte_pos;
+        let mut end = byte_pos;
+
+        while start > 0 && !line_str.is_char_boundary(start) {
+            let prev = line_str[..start].chars().last().unwrap();
+            start -= prev.len_utf8();
         }
         while end < line_str.len() && !line_str.is_char_boundary(end) {
-            end += 1;
+            let ch = line_str[end..].chars().next().unwrap();
+            end += ch.len_utf8();
         }
 
         if end <= start {
-            end = (start + 1).min(line_str.len());
+            let ch = line_str[start..].chars().next()?;
+            end = start + ch.len_utf8();
         }
 
         let ch = line_str[start..end].chars().next()?;
@@ -201,9 +215,9 @@ impl Workspace {
 
         let mut s = start;
         while s > 0 {
-            let prev = line_str[s - 1..s].chars().next()?;
+            let prev = line_str[..s].chars().last()?;
             if prev.is_alphanumeric() || prev == '_' || prev == '-' || prev == '.' || prev == '/' || prev == '#' || prev == '~' {
-                s -= 1;
+                s -= prev.len_utf8();
             } else {
                 break;
             }
@@ -211,9 +225,9 @@ impl Workspace {
 
         let mut e = end;
         while e < line_str.len() {
-            let next = line_str[e..e + 1].chars().next()?;
+            let next = line_str[e..].chars().next()?;
             if next.is_alphanumeric() || next == '_' || next == '-' || next == '.' || next == '/' || next == '#' || next == '~' {
-                e += 1;
+                e += next.len_utf8();
             } else {
                 break;
             }

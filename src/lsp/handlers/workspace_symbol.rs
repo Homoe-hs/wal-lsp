@@ -1,7 +1,7 @@
 use crate::lsp::WORKSPACE;
 use anyhow::Result;
 use lsp_server::{Connection, Request, Response};
-use lsp_types::{Location, SymbolKind, WorkspaceSymbol, WorkspaceSymbolParams, WorkspaceSymbolResponse};
+use lsp_types::{Location, WorkspaceSymbol, WorkspaceSymbolParams, WorkspaceSymbolResponse};
 use tracing::info;
 
 pub fn handle(connection: &Connection, req: Request) -> Result<()> {
@@ -31,14 +31,9 @@ fn find_workspace_symbols(query: &str) -> WorkspaceSymbolResponse {
             continue;
         }
         for loc in locations {
-            let kind = if name.starts_with("defun") {
-                SymbolKind::FUNCTION
-            } else {
-                SymbolKind::VARIABLE
-            };
             symbols.push(WorkspaceSymbol {
                 name: name.clone(),
-                kind,
+                kind: loc.kind,
                 tags: None,
                 container_name: None,
                 location: lsp_types::OneOf::Left(Location {

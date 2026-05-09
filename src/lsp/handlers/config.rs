@@ -34,13 +34,14 @@ pub fn handle_did_change_configuration(connection: &Connection, notif: Notificat
         opts.indentation_spaces = spaces;
     }
 
-    // Optionally re-trigger diagnostics for open documents
     let ws = crate::lsp::WORKSPACE.read().unwrap_or_else(|e| e.into_inner());
     for (uri, doc) in &ws.documents {
-        let diagnostics = crate::lsp::handlers::diagnostics::analyze_document_from_tree(
-            &doc.text,
-            doc.tree.as_ref().unwrap(),
-        );
+        let tree = match &doc.tree {
+            Some(t) => t,
+            None => continue,
+        };
+        let diagnostics =
+            crate::lsp::handlers::diagnostics::analyze_document_from_tree(&doc.text, tree);
         let params = lsp_types::PublishDiagnosticsParams {
             uri: uri.clone(),
             diagnostics,

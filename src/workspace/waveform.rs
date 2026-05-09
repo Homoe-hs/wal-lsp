@@ -147,7 +147,6 @@ impl WaveformManager {
 
     pub fn extract_defsig_signals(source: &str) -> Vec<String> {
         let mut signals = Vec::new();
-        let chars: Vec<char> = source.chars().collect();
         let bytes = source.as_bytes();
 
         let mut i = 0;
@@ -169,7 +168,7 @@ impl WaveformManager {
                     }
 
                     if j > start {
-                        let name: String = chars[start..j].iter().collect();
+                        let name = source[start..j].to_string();
                         if !name.is_empty() && name.chars().next().map(|c| c.is_alphanumeric()).unwrap_or(false) {
                             signals.push(name);
                         }

@@ -1,4 +1,5 @@
 pub mod completion;
+pub mod code_action;
 pub mod completion_resolve;
 pub mod config;
 pub mod diagnostics;
@@ -8,5 +9,6 @@ pub mod highlight;
 pub mod goto;
 pub mod hover;
 pub mod references;
+pub mod signature_help;
 pub mod symbols;
 pub mod workspace_symbol;

@@ -53,6 +53,16 @@ pub fn run() -> Result<()> {
         workspace_symbol_provider: Some(lsp_types::OneOf::Left(true)),
         document_formatting_provider: Some(lsp_types::OneOf::Left(true)),
         document_highlight_provider: Some(lsp_types::OneOf::Left(true)),
+        code_action_provider: Some(lsp_types::CodeActionProviderCapability::Options(
+            lsp_types::CodeActionOptions {
+                code_action_kinds: Some(vec![lsp_types::CodeActionKind::QUICKFIX]),
+                ..Default::default()
+            },
+        )),
+        signature_help_provider: Some(lsp_types::SignatureHelpOptions {
+            trigger_characters: Some(vec![" ".to_string()]),
+            ..Default::default()
+        }),
         folding_range_provider: Some(true.into()),
         diagnostic_provider: Some(DiagnosticServerCapabilities::Options(
             DiagnosticOptions {
@@ -114,6 +124,8 @@ fn handle_request(connection: &Connection, req: Request) -> Result<()> {
         "workspace/symbol" => handlers::workspace_symbol::handle(connection, req),
         "textDocument/diagnostic" => handlers::diagnostics::handle_diagnostic(connection, req),
         "textDocument/foldingRange" => handlers::folding_range::handle(connection, req),
+        "textDocument/codeAction" => handlers::code_action::handle(connection, req),
+        "textDocument/signatureHelp" => handlers::signature_help::handle(connection, req),
         "textDocument/documentHighlight" => handlers::highlight::handle(connection, req),
         "textDocument/formatting" => handlers::formatting::handle(connection, req),
         "shutdown" => {

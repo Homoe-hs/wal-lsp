@@ -107,7 +107,7 @@ fn extract_prefix(line: &str, cursor_col: usize) -> String {
     let before = &line[..byte_pos];
     let mut end = before.len();
     while end > 0 {
-        let ch = before[..end].chars().last().unwrap();
+        let ch = before[..end].chars().last().unwrap_or(' ');
         if ch.is_alphanumeric() || "+-*/=!><.%?_|&^~#".contains(ch) {
             end -= ch.len_utf8();
         } else {
@@ -134,7 +134,7 @@ fn extract_signal_prefix(line: &str, cursor_pos: usize) -> String {
 
     let mut end = before_cursor.len();
     while end > 0 {
-        let ch = before_cursor[..end].chars().last().unwrap();
+        let ch = before_cursor[..end].chars().last().unwrap_or(' ');
         if ch.is_alphanumeric() || ch == '_' || ch == '-' || ch == '.' || ch == '/' {
             end -= ch.len_utf8();
         } else {

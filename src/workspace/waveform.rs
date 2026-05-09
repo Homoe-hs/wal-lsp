@@ -147,35 +147,48 @@ impl WaveformManager {
 
     pub fn extract_defsig_signals(source: &str) -> Vec<String> {
         let mut signals = Vec::new();
-        let bytes = source.as_bytes();
 
         let mut i = 0;
-        while i < bytes.len().saturating_sub(7) {
-            if bytes[i] == b'(' {
-                if i + 7 <= bytes.len() && &source[i+1..i+7] == "defsig" {
-                    let mut j = i + 7;
-                    while j < bytes.len() && bytes[j].is_ascii_whitespace() {
-                        j += 1;
-                    }
+        while i < source.len().saturating_sub(7) {
+            // Use char_indices to safely iterate over UTF-8
+            let cur_byte = source.as_bytes()[i];
+            if cur_byte == b'('
+                && source.is_char_boundary(i + 1)
+                && source.is_char_boundary(i + 7)
+                && &source[i+1..i+7] == "defsig"
+            {
+                let mut j = i + 7;
+                let bytes = source.as_bytes();
+                while j < source.len() && bytes[j].is_ascii_whitespace() {
+                    j += 1;
+                }
 
-                    let start = j;
-                    while j < bytes.len()
-                        && !bytes[j].is_ascii_whitespace()
-                        && bytes[j] != b')'
-                        && bytes[j] != b'['
-                    {
-                        j += 1;
-                    }
+                let sig_start = j;
+                while j < source.len()
+                    && !bytes[j].is_ascii_whitespace()
+                    && bytes[j] != b')'
+                    && bytes[j] != b'['
+                {
+                    j += 1;
+                }
 
-                    if j > start {
-                        let name = source[start..j].to_string();
-                        if !name.is_empty() && name.chars().next().map(|c| c.is_alphanumeric()).unwrap_or(false) {
-                            signals.push(name);
-                        }
+                if j > sig_start
+                    && source.is_char_boundary(sig_start)
+                    && source.is_char_boundary(j)
+                {
+                    let name = source[sig_start..j].to_string();
+                    if !name.is_empty() && name.chars().next().map(|c| c.is_alphanumeric()).unwrap_or(false) {
+                        signals.push(name);
                     }
                 }
             }
-            i += 1;
+
+            // Advance by one character, not one byte
+            if let Some(next) = source[i..].chars().next() {
+                i += next.len_utf8();
+            } else {
+                break;
+            }
         }
 
         signals

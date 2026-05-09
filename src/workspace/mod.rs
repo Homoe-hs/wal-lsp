@@ -195,11 +195,11 @@ impl Workspace {
         let mut end = byte_pos;
 
         while start > 0 && !line_str.is_char_boundary(start) {
-            let prev = line_str[..start].chars().last().unwrap();
+            let prev = line_str[..start].chars().last()?;
             start -= prev.len_utf8();
         }
         while end < line_str.len() && !line_str.is_char_boundary(end) {
-            let ch = line_str[end..].chars().next().unwrap();
+            let ch = line_str[end..].chars().next()?;
             end += ch.len_utf8();
         }
 

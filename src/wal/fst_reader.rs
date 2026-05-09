@@ -93,13 +93,21 @@ impl<R: Read + Seek> FstReader<R> {
     }
 
     fn read_bytes(&mut self, len: usize) -> io::Result<Vec<u8>> {
+        if len > 64 * 1024 * 1024 {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "Block too large (>64MB)"));
+        }
         let mut buf = vec![0u8; len];
         self.reader.read_exact(&mut buf)?;
         Ok(buf)
     }
 
     fn skip_block(&mut self, len: u64) -> io::Result<()> {
-        self.reader.seek(SeekFrom::Current(len as i64))?;
+        let signed_len = if len > i64::MAX as u64 {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "Block length too large"));
+        } else {
+            len as i64
+        };
+        self.reader.seek(SeekFrom::Current(signed_len))?;
         Ok(())
     }
 

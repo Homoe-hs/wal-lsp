@@ -2,8 +2,12 @@ use crate::lsp::WORKSPACE;
 use crate::wal::parser::WAL_PARSER;
 use crate::wal::symbols::extract_symbols_from_node;
 use anyhow::Result;
-use lsp_server::{Connection, Notification};
-use lsp_types::{Diagnostic, PublishDiagnosticsParams};
+use lsp_server::{Connection, Notification, Request, Response};
+use lsp_types::{
+    Diagnostic, DocumentDiagnosticParams, DocumentDiagnosticReport,
+    FullDocumentDiagnosticReport, PublishDiagnosticsParams,
+    RelatedFullDocumentDiagnosticReport,
+};
 use std::collections::HashSet;
 use tree_sitter::Tree;
 use tracing::info;
@@ -207,6 +211,45 @@ fn collect_syntax_errors(
         }
         cursor.goto_parent();
     }
+}
+
+pub fn handle_diagnostic(connection: &Connection, req: Request) -> Result<()> {
+    let params: DocumentDiagnosticParams = serde_json::from_value(req.params)?;
+    let uri = params.text_document.uri;
+
+    let report = {
+        let ws = WORKSPACE.read().unwrap_or_else(|e| e.into_inner());
+        match ws.get_document(&uri) {
+            Some(doc) => {
+                let text = doc.text.clone();
+                let diagnostics = doc.tree.as_ref().map_or_else(
+                    || analyze_document(&text),
+                    |tree| analyze_document_from_tree(&text, tree),
+                );
+                DocumentDiagnosticReport::Full(RelatedFullDocumentDiagnosticReport {
+                    related_documents: None,
+                    full_document_diagnostic_report: FullDocumentDiagnosticReport {
+                        result_id: None,
+                        items: diagnostics,
+                    },
+                })
+            }
+            None => {
+                let diagnostics = analyze_document("");
+                DocumentDiagnosticReport::Full(RelatedFullDocumentDiagnosticReport {
+                    related_documents: None,
+                    full_document_diagnostic_report: FullDocumentDiagnosticReport {
+                        result_id: None,
+                        items: diagnostics,
+                    },
+                })
+            }
+        }
+    };
+
+    let resp = Response::new_ok(req.id, report);
+    connection.sender.send(lsp_server::Message::Response(resp))?;
+    Ok(())
 }
 
 #[cfg(test)]

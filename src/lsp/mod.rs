@@ -30,6 +30,8 @@ pub fn run() -> Result<()> {
 
     info!("Init params: {:?}", init_params);
 
+    use lsp_types::{DiagnosticOptions, DiagnosticServerCapabilities};
+
     let server_capabilities = to_value(lsp_types::ServerCapabilities {
         text_document_sync: Some(lsp_types::TextDocumentSyncCapability::Kind(
             lsp_types::TextDocumentSyncKind::FULL,
@@ -50,6 +52,15 @@ pub fn run() -> Result<()> {
         document_symbol_provider: Some(lsp_types::OneOf::Left(true)),
         workspace_symbol_provider: Some(lsp_types::OneOf::Left(true)),
         document_formatting_provider: Some(lsp_types::OneOf::Left(true)),
+        document_highlight_provider: Some(lsp_types::OneOf::Left(true)),
+        folding_range_provider: Some(true.into()),
+        diagnostic_provider: Some(DiagnosticServerCapabilities::Options(
+            DiagnosticOptions {
+                inter_file_dependencies: false,
+                workspace_diagnostics: false,
+                ..Default::default()
+            },
+        )),
         ..Default::default()
     })
     .map_err(|e| anyhow::anyhow!("Failed to serialize capabilities: {}", e))?;
@@ -101,6 +112,9 @@ fn handle_request(connection: &Connection, req: Request) -> Result<()> {
         "textDocument/references" => handlers::references::handle(connection, req),
         "textDocument/documentSymbol" => handlers::symbols::handle(connection, req),
         "workspace/symbol" => handlers::workspace_symbol::handle(connection, req),
+        "textDocument/diagnostic" => handlers::diagnostics::handle_diagnostic(connection, req),
+        "textDocument/foldingRange" => handlers::folding_range::handle(connection, req),
+        "textDocument/documentHighlight" => handlers::highlight::handle(connection, req),
         "textDocument/formatting" => handlers::formatting::handle(connection, req),
         "shutdown" => {
             info!("Received shutdown request");

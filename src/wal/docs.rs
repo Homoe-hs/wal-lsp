@@ -728,6 +728,447 @@ static FUNCTION_DOCS: Lazy<HashMap<String, FunctionDoc>> = Lazy::new(|| {
         },
     );
 
+    // ---- Special Forms ----
+    docs.insert(
+        "defmacro".to_string(),
+        FunctionDoc {
+            name: "defmacro".to_string(),
+            signature: "(defmacro name args body+)".to_string(),
+            description: "Define a macro. Macros are expanded at compile time and can transform code. args can be a list of symbols or a single symbol for variadic.".to_string(),
+            example: Some("(defmacro my-when [cond & body] `(if ,cond (do ,@body)))".to_string()),
+        },
+    );
+    docs.insert(
+        "eval".to_string(),
+        FunctionDoc {
+            name: "eval".to_string(),
+            signature: "(eval expr)".to_string(),
+            description: "Evaluate expr as a WAL expression and return the result. The expression is evaluated in the current environment.".to_string(),
+            example: Some("(eval '(+ 1 2)) ;; => 3".to_string()),
+        },
+    );
+    docs.insert(
+        "parse".to_string(),
+        FunctionDoc {
+            name: "parse".to_string(),
+            signature: "(parse string)".to_string(),
+            description: "Parse a string as WAL code and return the AST without evaluating it.".to_string(),
+            example: Some("(parse \"(+ 1 2)\")".to_string()),
+        },
+    );
+    docs.insert(
+        "gensym".to_string(),
+        FunctionDoc {
+            name: "gensym".to_string(),
+            signature: "(gensym)".to_string(),
+            description: "Generate a unique, uninterned symbol. Useful in macro definitions to create unique variable names.".to_string(),
+            example: Some("(gensym) ;; => g1234".to_string()),
+        },
+    );
+    docs.insert(
+        "require".to_string(),
+        FunctionDoc {
+            name: "require".to_string(),
+            signature: "(require module)".to_string(),
+            description: "Load a WAL module. Equivalent to import but may use a different module resolution path.".to_string(),
+            example: Some("(require \"math\")".to_string()),
+        },
+    );
+    docs.insert(
+        "import".to_string(),
+        FunctionDoc {
+            name: "import".to_string(),
+            signature: "(import module)".to_string(),
+            description: "Import a WAL module, making its definitions available in the current environment.".to_string(),
+            example: Some("(import \"utils\")".to_string()),
+        },
+    );
+
+    // ---- List Operations ----
+    docs.insert(
+        "filter".to_string(),
+        FunctionDoc {
+            name: "filter".to_string(),
+            signature: "(filter pred xs)".to_string(),
+            description: "Returns a new list containing only the elements of xs for which pred returns true.".to_string(),
+            example: Some("(filter (fn [x] (> x 2)) '(1 2 3 4)) ;; => (3 4)".to_string()),
+        },
+    );
+    docs.insert(
+        "sort".to_string(),
+        FunctionDoc {
+            name: "sort".to_string(),
+            signature: "(sort xs)".to_string(),
+            description: "Returns a sorted copy of list xs. Uses the natural ordering of elements.".to_string(),
+            example: Some("(sort '(3 1 4 1 5)) ;; => (1 1 3 4 5)".to_string()),
+        },
+    );
+    docs.insert(
+        "reverse".to_string(),
+        FunctionDoc {
+            name: "reverse".to_string(),
+            signature: "(reverse xs)".to_string(),
+            description: "Returns a new list with the elements of xs in reverse order.".to_string(),
+            example: Some("(reverse '(1 2 3)) ;; => (3 2 1)".to_string()),
+        },
+    );
+    docs.insert(
+        "append".to_string(),
+        FunctionDoc {
+            name: "append".to_string(),
+            signature: "(append xs x)".to_string(),
+            description: "Appends element x to the end of list xs. Returns a new list.".to_string(),
+            example: Some("(append '(1 2 3) 4) ;; => (1 2 3 4)".to_string()),
+        },
+    );
+    docs.insert(
+        "range".to_string(),
+        FunctionDoc {
+            name: "range".to_string(),
+            signature: "(range start end)".to_string(),
+            description: "Returns a list of integers from start (inclusive) to end (exclusive).".to_string(),
+            example: Some("(range 1 5) ;; => (1 2 3 4)".to_string()),
+        },
+    );
+
+    // ---- Math Functions ----
+    docs.insert(
+        "floor".to_string(),
+        FunctionDoc {
+            name: "floor".to_string(),
+            signature: "(floor n)".to_string(),
+            description: "Returns the largest integer less than or equal to n.".to_string(),
+            example: Some("(floor 3.14) ;; => 3".to_string()),
+        },
+    );
+    docs.insert(
+        "ceil".to_string(),
+        FunctionDoc {
+            name: "ceil".to_string(),
+            signature: "(ceil n)".to_string(),
+            description: "Returns the smallest integer greater than or equal to n.".to_string(),
+            example: Some("(ceil 3.14) ;; => 4".to_string()),
+        },
+    );
+    docs.insert(
+        "round".to_string(),
+        FunctionDoc {
+            name: "round".to_string(),
+            signature: "(round n)".to_string(),
+            description: "Rounds n to the nearest integer. Ties round away from zero.".to_string(),
+            example: Some("(round 3.5) ;; => 4".to_string()),
+        },
+    );
+    docs.insert(
+        "mod".to_string(),
+        FunctionDoc {
+            name: "mod".to_string(),
+            signature: "(mod a b)".to_string(),
+            description: "Returns the modulo (remainder) of a divided by b. Result has the same sign as b.".to_string(),
+            example: Some("(mod 10 3) ;; => 1".to_string()),
+        },
+    );
+    docs.insert(
+        "abs".to_string(),
+        FunctionDoc {
+            name: "abs".to_string(),
+            signature: "(abs n)".to_string(),
+            description: "Returns the absolute value of n.".to_string(),
+            example: Some("(abs -5) ;; => 5".to_string()),
+        },
+    );
+
+    // ---- Type Predicates ----
+    docs.insert(
+        "defined?".to_string(),
+        FunctionDoc {
+            name: "defined?".to_string(),
+            signature: "(defined? name)".to_string(),
+            description: "Returns true if name is defined in the current environment.".to_string(),
+            example: Some("(defined? 'x) ;; => #t if x is bound".to_string()),
+        },
+    );
+
+    // ---- Type Conversions ----
+    docs.insert(
+        "string->int".to_string(),
+        FunctionDoc {
+            name: "string->int".to_string(),
+            signature: "(string->int str)".to_string(),
+            description: "Converts a string to an integer. Returns 0 if the string is not a valid number.".to_string(),
+            example: Some("(string->int \"42\") ;; => 42".to_string()),
+        },
+    );
+    docs.insert(
+        "int->string".to_string(),
+        FunctionDoc {
+            name: "int->string".to_string(),
+            signature: "(int->string n)".to_string(),
+            description: "Converts an integer to its string representation.".to_string(),
+            example: Some("(int->string 42) ;; => \"42\"".to_string()),
+        },
+    );
+    docs.insert(
+        "symbol->string".to_string(),
+        FunctionDoc {
+            name: "symbol->string".to_string(),
+            signature: "(symbol->string sym)".to_string(),
+            description: "Converts a symbol to its string representation (without quotes).".to_string(),
+            example: Some("(symbol->string 'hello) ;; => \"hello\"".to_string()),
+        },
+    );
+    docs.insert(
+        "string->symbol".to_string(),
+        FunctionDoc {
+            name: "string->symbol".to_string(),
+            signature: "(string->symbol str)".to_string(),
+            description: "Converts a string to a symbol.".to_string(),
+            example: Some("(string->symbol \"hello\") ;; => hello".to_string()),
+        },
+    );
+    docs.insert(
+        "bits->sint".to_string(),
+        FunctionDoc {
+            name: "bits->sint".to_string(),
+            signature: "(bits->sint bits)".to_string(),
+            description: "Converts a bit vector (list of 0/1 values) to a signed integer.".to_string(),
+            example: Some("(bits->sint '(1 0 1)) ;; => -3 (two's complement)".to_string()),
+        },
+    );
+
+    // ---- Waveform Operations ----
+    docs.insert(
+        "signal-width".to_string(),
+        FunctionDoc {
+            name: "signal-width".to_string(),
+            signature: "(signal-width name)".to_string(),
+            description: "Returns the bit width of a signal in the loaded waveform.".to_string(),
+            example: Some("(signal-width tb.data) ;; => 8".to_string()),
+        },
+    );
+    docs.insert(
+        "sample-at".to_string(),
+        FunctionDoc {
+            name: "sample-at".to_string(),
+            signature: "(sample-at signal time)".to_string(),
+            description: "Samples the value of signal at a specific time point rather than at the current index.".to_string(),
+            example: Some("(sample-at tb.clk 100)".to_string()),
+        },
+    );
+    docs.insert(
+        "find/g".to_string(),
+        FunctionDoc {
+            name: "find/g".to_string(),
+            signature: "(find/g cond)".to_string(),
+            description: "Global find. Like find, but searches across all loaded traces instead of just the current one.".to_string(),
+            example: Some("(find/g (= tb.overflow 1))".to_string()),
+        },
+    );
+    docs.insert(
+        "trim-trace".to_string(),
+        FunctionDoc {
+            name: "trim-trace".to_string(),
+            signature: "(trim-trace start end)".to_string(),
+            description: "Trim the currently loaded trace to the specified index range. start and end are integer indices.".to_string(),
+            example: Some("(trim-trace 0 1000)".to_string()),
+        },
+    );
+
+    // ---- Groups and Scopes ----
+    docs.insert(
+        "in-scope".to_string(),
+        FunctionDoc {
+            name: "in-scope".to_string(),
+            signature: "(in-scope scope body+)".to_string(),
+            description: "Evaluates body in the given scope. Signal names are resolved relative to the scope.".to_string(),
+            example: Some("(in-scope \"top.sub\" (print ~clk))".to_string()),
+        },
+    );
+    docs.insert(
+        "in-group".to_string(),
+        FunctionDoc {
+            name: "in-group".to_string(),
+            signature: "(in-group group expr)".to_string(),
+            description: "Evaluates expr in a single group. Equivalent to in-groups with one group.".to_string(),
+            example: Some("(in-group \"top.in_\" (print #valid))".to_string()),
+        },
+    );
+
+    // ---- Special Variables ----
+    docs.insert(
+        "SIGNALS".to_string(),
+        FunctionDoc {
+            name: "SIGNALS".to_string(),
+            signature: "SIGNALS".to_string(),
+            description: "Special variable. Returns a list of all signal names in the currently loaded trace.".to_string(),
+            example: None,
+        },
+    );
+    docs.insert(
+        "INDEX".to_string(),
+        FunctionDoc {
+            name: "INDEX".to_string(),
+            signature: "INDEX".to_string(),
+            description: "Special variable. The current time index into the waveform. Used for stepping through traces.".to_string(),
+            example: None,
+        },
+    );
+    docs.insert(
+        "MAX-INDEX".to_string(),
+        FunctionDoc {
+            name: "MAX-INDEX".to_string(),
+            signature: "MAX-INDEX".to_string(),
+            description: "Special variable. The maximum valid INDEX value for the loaded trace.".to_string(),
+            example: None,
+        },
+    );
+    docs.insert(
+        "CS".to_string(),
+        FunctionDoc {
+            name: "CS".to_string(),
+            signature: "CS".to_string(),
+            description: "Special variable. Current Scope — returns the name of the selected scope.".to_string(),
+            example: None,
+        },
+    );
+    docs.insert(
+        "LOCAL-SIGNALS".to_string(),
+        FunctionDoc {
+            name: "LOCAL-SIGNALS".to_string(),
+            signature: "LOCAL-SIGNALS".to_string(),
+            description: "Special variable. Returns a list of signals local to the current scope.".to_string(),
+            example: None,
+        },
+    );
+    docs.insert(
+        "VIRTUAL-SIGNALS".to_string(),
+        FunctionDoc {
+            name: "VIRTUAL-SIGNALS".to_string(),
+            signature: "VIRTUAL-SIGNALS".to_string(),
+            description: "Special variable. Returns a list of all defined virtual signals (defsig).".to_string(),
+            example: None,
+        },
+    );
+    docs.insert(
+        "TRACE-FILE".to_string(),
+        FunctionDoc {
+            name: "TRACE-FILE".to_string(),
+            signature: "TRACE-FILE".to_string(),
+            description: "Special variable. The file path of the currently loaded waveform trace.".to_string(),
+            example: None,
+        },
+    );
+    docs.insert(
+        "TRACE-NAME".to_string(),
+        FunctionDoc {
+            name: "TRACE-NAME".to_string(),
+            signature: "TRACE-NAME".to_string(),
+            description: "Special variable. The name (ID) of the currently loaded waveform trace.".to_string(),
+            example: None,
+        },
+    );
+    docs.insert(
+        "TS".to_string(),
+        FunctionDoc {
+            name: "TS".to_string(),
+            signature: "TS".to_string(),
+            description: "Special variable. Time Stamp — the current simulation time of the waveform.".to_string(),
+            example: None,
+        },
+    );
+
+    // ---- Macros ----
+    docs.insert(
+        "dowhile".to_string(),
+        FunctionDoc {
+            name: "dowhile".to_string(),
+            signature: "(dowhile body... cond)".to_string(),
+            description: "Do-while loop. Evaluates body expressions, then checks cond. Loops while cond is true. Body is always executed at least once.".to_string(),
+            example: Some("(dowhile (step) (! done))".to_string()),
+        },
+    );
+    docs.insert(
+        "until".to_string(),
+        FunctionDoc {
+            name: "until".to_string(),
+            signature: "(until cond body...)".to_string(),
+            description: "Until loop. Evaluates body expressions repeatedly until cond becomes true (inverse of while).".to_string(),
+            example: Some("(until ready (step))".to_string()),
+        },
+    );
+    docs.insert(
+        "car".to_string(),
+        FunctionDoc {
+            name: "car".to_string(),
+            signature: "(car xs)".to_string(),
+            description: "Returns the first element of list xs. Alias for first.".to_string(),
+            example: Some("(car '(1 2 3)) ;; => 1".to_string()),
+        },
+    );
+    docs.insert(
+        "cdr".to_string(),
+        FunctionDoc {
+            name: "cdr".to_string(),
+            signature: "(cdr xs)".to_string(),
+            description: "Returns the tail of list xs (all elements except first). Alias for rest.".to_string(),
+            example: Some("(cdr '(1 2 3)) ;; => (2 3)".to_string()),
+        },
+    );
+    docs.insert(
+        "cadr".to_string(),
+        FunctionDoc {
+            name: "cadr".to_string(),
+            signature: "(cadr xs)".to_string(),
+            description: "Returns the second element of list xs. Equivalent to (car (cdr xs)).".to_string(),
+            example: Some("(cadr '(1 2 3)) ;; => 2".to_string()),
+        },
+    );
+    docs.insert(
+        "partition".to_string(),
+        FunctionDoc {
+            name: "partition".to_string(),
+            signature: "(partition pred xs)".to_string(),
+            description: "Splits list xs into two lists: elements where pred is true and elements where it is false.".to_string(),
+            example: Some("(partition (fn [x] (> x 2)) '(1 2 3 4)) ;; => ((3 4) (1 2))".to_string()),
+        },
+    );
+    docs.insert(
+        "inc".to_string(),
+        FunctionDoc {
+            name: "inc".to_string(),
+            signature: "(inc sym)".to_string(),
+            description: "Increment a variable by 1. Sets sym to (+ sym 1) and returns the new value.".to_string(),
+            example: Some("(define x 5) (inc x) ;; => 6".to_string()),
+        },
+    );
+    docs.insert(
+        "dec".to_string(),
+        FunctionDoc {
+            name: "dec".to_string(),
+            signature: "(dec sym)".to_string(),
+            description: "Decrement a variable by 1. Sets sym to (- sym 1) and returns the new value.".to_string(),
+            example: Some("(define x 5) (dec x) ;; => 4".to_string()),
+        },
+    );
+    docs.insert(
+        "rising".to_string(),
+        FunctionDoc {
+            name: "rising".to_string(),
+            signature: "(rising expr)".to_string(),
+            description: "Returns true if expr transitions from 0 to 1 between the current and next index. Edge detection macro.".to_string(),
+            example: Some("(rising tb.clk)".to_string()),
+        },
+    );
+    docs.insert(
+        "falling".to_string(),
+        FunctionDoc {
+            name: "falling".to_string(),
+            signature: "(falling expr)".to_string(),
+            description: "Returns true if expr transitions from 1 to 0 between the current and next index. Edge detection macro.".to_string(),
+            example: Some("(falling tb.rst)".to_string()),
+        },
+    );
+
     docs
 });
 

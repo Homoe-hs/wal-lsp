@@ -1,5 +1,4 @@
 use crate::lsp::WORKSPACE;
-use crate::wal::parser::WAL_PARSER;
 use anyhow::Result;
 use lsp_server::{Connection, Request, Response};
 use lsp_types::{FoldingRange, FoldingRangeParams};
@@ -22,22 +21,17 @@ pub fn handle(connection: &Connection, req: Request) -> Result<()> {
 }
 
 fn get_folding_ranges(uri: &lsp_types::Uri) -> Vec<FoldingRange> {
-    let ws = WORKSPACE.read().unwrap_or_else(|e| e.into_inner());
-    let doc = match ws.get_document(uri) {
-        Some(d) => d,
-        None => return vec![],
-    };
-
-    let tree = match &doc.tree {
-        Some(t) => t.clone(),
-        None => {
-            let mut parser = WAL_PARSER.lock().unwrap_or_else(|e| e.into_inner());
-            parser.parse_incremental(&doc.text, None)
-        }
-    };
-
     let mut ranges = Vec::new();
-    collect_folding_ranges(tree.root_node(), &doc.text, &mut ranges);
+    {
+        let ws = WORKSPACE.read().unwrap_or_else(|e| e.into_inner());
+        let doc = match ws.get_document(uri) {
+            Some(d) => d,
+            None => return vec![],
+        };
+        if let Some(tree) = &doc.tree {
+            collect_folding_ranges(tree.root_node(), &doc.text, &mut ranges);
+        }
+    }
     ranges
 }
 
@@ -81,7 +75,7 @@ fn collect_folding_ranges(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lsp::WORKSPACE;
+    use crate::wal::parser::WAL_PARSER;
     use std::str::FromStr;
 
     fn setup(source: &str) {

@@ -221,11 +221,10 @@ pub fn handle_diagnostic(connection: &Connection, req: Request) -> Result<()> {
         let ws = WORKSPACE.read().unwrap_or_else(|e| e.into_inner());
         match ws.get_document(&uri) {
             Some(doc) => {
-                let text = doc.text.clone();
-                let diagnostics = doc.tree.as_ref().map_or_else(
-                    || analyze_document(&text),
-                    |tree| analyze_document_from_tree(&text, tree),
-                );
+                let diagnostics = match &doc.tree {
+                    Some(tree) => analyze_document_from_tree(&doc.text, tree),
+                    None => analyze_document(&doc.text),
+                };
                 DocumentDiagnosticReport::Full(RelatedFullDocumentDiagnosticReport {
                     related_documents: None,
                     full_document_diagnostic_report: FullDocumentDiagnosticReport {
@@ -234,16 +233,13 @@ pub fn handle_diagnostic(connection: &Connection, req: Request) -> Result<()> {
                     },
                 })
             }
-            None => {
-                let diagnostics = analyze_document("");
-                DocumentDiagnosticReport::Full(RelatedFullDocumentDiagnosticReport {
-                    related_documents: None,
-                    full_document_diagnostic_report: FullDocumentDiagnosticReport {
-                        result_id: None,
-                        items: diagnostics,
-                    },
-                })
-            }
+            None => DocumentDiagnosticReport::Full(RelatedFullDocumentDiagnosticReport {
+                related_documents: None,
+                full_document_diagnostic_report: FullDocumentDiagnosticReport {
+                    result_id: None,
+                    items: vec![],
+                },
+            })
         }
     };
 

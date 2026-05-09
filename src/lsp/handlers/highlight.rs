@@ -87,7 +87,8 @@ fn find_word_at(line: &str, start: usize, word: &str) -> Option<(usize, bool)> {
         Some((actual_end, true))
     } else {
         // Try next position
-        let next_start = actual_start + 1;
+        let ch = line[actual_start..].chars().next().unwrap_or(' ');
+        let next_start = actual_start + ch.len_utf8();
         if next_start < line.len() {
             find_word_at(line, next_start, word)
         } else {

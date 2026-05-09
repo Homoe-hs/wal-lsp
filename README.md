@@ -98,6 +98,20 @@ $ wal-lsp --version
 
 ## Editor Configuration
 
+### Prerequisites
+
+`wal-lsp` must be installed in your `PATH`:
+
+```bash
+cp target/release/wal-lsp ~/.local/bin/
+```
+
+Verify:
+
+```bash
+wal-lsp --version
+```
+
 ### OpenCode
 
 Add to `~/.config/opencode/opencode.json`:
@@ -106,7 +120,7 @@ Add to `~/.config/opencode/opencode.json`:
 {
   "lsp": {
     "wal": {
-      "command": ["/home/hesheng/.local/bin/wal-lsp"],
+      "command": ["wal-lsp"],
       "extensions": [".wal", ".rkt"]
     }
   }
@@ -115,8 +129,11 @@ Add to `~/.config/opencode/opencode.json`:
 
 ### VS Code
 
+Create `.vscode/settings.json` in your project or add globally:
+
 ```json
 {
+  "wal-lsp.command": "wal-lsp",
   "languages": [{
     "id": "wal",
     "extensions": [".wal"],
@@ -125,9 +142,19 @@ Add to `~/.config/opencode/opencode.json`:
 }
 ```
 
+Or install the [WAL LSP extension](https://marketplace.visualstudio.com/items?itemName=wal.wal-lsp) (recommended).
+
 ### Neovim
 
 ```lua
+-- Using built-in LSP client (no external plugin required)
+vim.api.nvim_create_autocmd({ "BufNewFile", "BufRead" }, {
+  pattern = "*.wal",
+  callback = function()
+    vim.bo.filetype = "wal"
+  end,
+})
+
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "wal",
   callback = function()

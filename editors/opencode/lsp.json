@@ -1,0 +1,8 @@
+{
+  "lsp": {
+    "wal": {
+      "command": ["wal-lsp"],
+      "extensions": [".wal", ".rkt"]
+    }
+  }
+}

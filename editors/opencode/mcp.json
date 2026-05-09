@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "wal-lsp": {
-      "command": "/home/hesheng/Projects/WAL-lsp/target/release/wal-lsp",
-      "args": ["--mcp"]
-    }
-  }
-}

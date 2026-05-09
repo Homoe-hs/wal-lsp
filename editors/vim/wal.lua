@@ -1,20 +1,22 @@
 -- WAL LSP Configuration for Neovim
--- Add to your init.lua or create a separate file
+-- Add to your init.lua
 
 local lspconfig = require('lspconfig')
 
-lspconfig.wal_lsp.setup({
-  cmd = {"/home/hesheng/Projects/WAL-lsp/target/release/wal-lsp"},
-  filetypes = {"wal"},
-  root_dir = function(fname)
-    return lspconfig.util.find_root({"*.wal"}, fname)
-  end,
-  settings = {
-    wal = {}
+lspconfig.wal_lsp = {
+  default_config = {
+    cmd = { "wal-lsp" },
+    filetypes = { "wal" },
+    root_dir = function(fname)
+      return lspconfig.util.root_pattern(".git", "*.wal")(fname)
+    end,
+    settings = {},
   },
-})
+}
 
--- Optional: Add to filetype detection
+lspconfig.wal_lsp.setup({})
+
+-- Filetype detection
 vim.filetype.add({
   extension = {
     wal = "wal",

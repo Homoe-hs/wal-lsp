@@ -5,23 +5,26 @@
 
 ;;; Code:
 
-(require 'lsp-mode')
+(require 'lsp-mode)
 
 (add-to-list 'lsp-language-id-configuration '("\\.wal\\'" . "wal"))
 
 (lsp-register-client
- (make-lsp-client :server-id 'wal-lsp
-                  :major-modes '(wal-mode)
-                  :notification-handlers (ht<-alist)
-                  :initialization-options (make-hash-table)
-                  :cmd-processor (lambda (cmd)
-                                  (cons (expand-file-name "/home/hesheng/Projects/WAL-lsp/target/release/wal-lsp")
-                                        (when (cdr cmd) (list (cdr cmd))))))
+ (make-lsp-client
+  :server-id 'wal-lsp
+  :major-modes '(wal-mode)
+  :language-id "wal"
+  :new-connection (lsp-stdio-connection '("wal-lsp"))
+  :notification-handlers (make-hash-table)
+  :initialization-options (make-hash-table)
+  :multi-root t))
 
-(define-derived-mode wal-mode scheme-mode "WAL"
+(define-derived-mode wal-mode prog-mode "WAL"
   "Major mode for WAL (Waveform Analysis Language)."
   :syntax-table nil
   (setq font-lock-defaults nil))
+
+(add-to-list 'auto-mode-alist '("\\.wal\\'" . wal-mode))
 
 (provide 'wal-lsp)
 ;;; wal-lsp.el ends here

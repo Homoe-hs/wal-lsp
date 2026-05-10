@@ -21,10 +21,9 @@ pub fn handle(connection: &Connection, req: Request) -> Result<()> {
         return Ok(());
     }
 
-    let opts = crate::lsp::FORMAT_OPTS
+    let opts = *crate::lsp::FORMAT_OPTS
         .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .clone();
+        .unwrap_or_else(|e| e.into_inner());
     let formatted = format_document_with_opts(&text, &opts);
 
     let edit = TextEdit {

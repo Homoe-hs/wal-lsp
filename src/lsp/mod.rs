@@ -117,6 +117,8 @@ fn handle_request(connection: &Connection, req: Request) -> Result<()> {
     let result = match req.method.as_str() {
         "textDocument/completion" => handlers::completion::handle(connection, req),
         "completionItem/resolve" => handlers::completion_resolve::handle(connection, req),
+        "textDocument/codeAction" => handlers::code_action::handle(connection, req),
+        "textDocument/signatureHelp" => handlers::signature_help::handle(connection, req),
         "textDocument/hover" => handlers::hover::handle(connection, req),
         "textDocument/definition" => handlers::goto::handle(connection, req),
         "textDocument/references" => handlers::references::handle(connection, req),
@@ -124,8 +126,6 @@ fn handle_request(connection: &Connection, req: Request) -> Result<()> {
         "workspace/symbol" => handlers::workspace_symbol::handle(connection, req),
         "textDocument/diagnostic" => handlers::diagnostics::handle_diagnostic(connection, req),
         "textDocument/foldingRange" => handlers::folding_range::handle(connection, req),
-        "textDocument/codeAction" => handlers::code_action::handle(connection, req),
-        "textDocument/signatureHelp" => handlers::signature_help::handle(connection, req),
         "textDocument/documentHighlight" => handlers::highlight::handle(connection, req),
         "textDocument/formatting" => handlers::formatting::handle(connection, req),
         "shutdown" => {
@@ -139,10 +139,25 @@ fn handle_request(connection: &Connection, req: Request) -> Result<()> {
         }
     };
     if let Err(e) = result {
-        let resp = Response::new_err(id, -32601, format!("{}", e));
+        let code = error_code_from_anyhow(&e);
+        let resp = Response::new_err(id, code, format!("{}", e));
         connection.sender.send(Message::Response(resp))?;
     }
     Ok(())
+}
+
+fn error_code_from_anyhow(e: &anyhow::Error) -> i32 {
+    let msg = format!("{}", e);
+    if msg.starts_with("Method not found") {
+        -32601
+    } else if msg.starts_with("Failed to extract params")
+        || msg.starts_with("invalid type")
+        || msg.contains("missing field")
+    {
+        -32602
+    } else {
+        -32603
+    }
 }
 
 fn handle_notification(connection: &Connection, notif: Notification) -> Result<()> {

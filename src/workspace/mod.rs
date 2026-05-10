@@ -3,6 +3,15 @@ mod waveform;
 use crate::wal::parser::WAL_PARSER;
 use crate::wal::symbols::{WalSymbol, extract_symbols};
 use lsp_types::{Range, SymbolKind, Uri};
+
+pub fn is_wal_word_char(c: char) -> bool {
+    c.is_alphanumeric()
+        || c == '_' || c == '-' || c == '.' || c == '/'
+        || c == '#' || c == '~'
+        || c == '+' || c == '*' || c == '=' || c == '!'
+        || c == '>' || c == '<' || c == '&' || c == '|' || c == '%'
+        || c == '?'
+}
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
@@ -209,14 +218,14 @@ impl Workspace {
         }
 
         let ch = line_str[start..end].chars().next()?;
-        if !ch.is_alphanumeric() && ch != '_' && ch != '-' && ch != '.' && ch != '/' && ch != '#' && ch != '~' {
+        if !is_wal_word_char(ch) {
             return None;
         }
 
         let mut s = start;
         while s > 0 {
             let prev = line_str[..s].chars().last()?;
-            if prev.is_alphanumeric() || prev == '_' || prev == '-' || prev == '.' || prev == '/' || prev == '#' || prev == '~' {
+            if is_wal_word_char(prev) {
                 s -= prev.len_utf8();
             } else {
                 break;
@@ -226,7 +235,7 @@ impl Workspace {
         let mut e = end;
         while e < line_str.len() {
             let next = line_str[e..].chars().next()?;
-            if next.is_alphanumeric() || next == '_' || next == '-' || next == '.' || next == '/' || next == '#' || next == '~' {
+            if is_wal_word_char(next) {
                 e += next.len_utf8();
             } else {
                 break;

@@ -102,7 +102,25 @@ Lines        Diags        Time       Rate         Status
 
 ### Prerequisites
 
-- Rust toolchain (1.70+)
+| 依赖 | 最低版本 | 说明 |
+|------|---------|------|
+| Rust | 1.80+ | `LazyLock` 等特性需求，推荐 1.95+ |
+| Cargo | 1.80+ | 随 Rust 工具链一起安装 |
+| C 编译器 | gcc / clang / msvc | tree-sitter 解析器编译需要 |
+
+> 当前开发/测试环境使用 **Rust 1.95.0**，edition 2021。
+
+### Key Dependencies
+
+| crate | 版本 | 用途 |
+|-------|------|------|
+| `lsp-server` / `lsp-types` | 0.7 / 0.96 | LSP JSON-RPC 协议框架 |
+| `tree-sitter` | 0.24 | 高性能增量解析引擎 |
+| `tree-sitter-wal` | local | WAL 语法定义（本仓库子 crate）|
+| `tokio` | 1 (full) | 异步运行时 |
+| `serde` / `serde_json` | 1 | JSON 序列化 |
+| `clap` | 4 | CLI 参数解析 (`--help` / `--version`) |
+| `tracing` | 0.1 | 结构化日志 (stderr) |
 
 ### Build & Install
 
@@ -117,6 +135,16 @@ cp target/release/wal-lsp ~/.local/bin/
 ```bash
 $ wal-lsp --help
 $ wal-lsp --version
+```
+
+### Run Tests
+
+```bash
+# 单元测试 + 集成测试 (260 项)
+cargo test -- --test-threads=1
+
+# LSP 协议端到端测试 (27 项)
+bash test_lsp.sh
 ```
 
 ---

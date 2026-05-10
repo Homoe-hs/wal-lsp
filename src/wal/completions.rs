@@ -49,8 +49,7 @@ pub const SPECIAL_FORMS: &[(&str, &str)] = &[
     ("defmacro", "定义宏 (defmacro args body)"),
     ("if", "条件表达式 (if cond then else)"),
     ("while", "循环 (while cond body)"),
-    ("for", "for 循环 (for [x list] body)"),
-    ("for/list", "列表推导 (for/list [x xs] body) — collect results into list"),
+
     ("cond", "多分支条件 (cond [cond1 body1] [cond2 body2])"),
     ("case", "值匹配分支 (case key [value expr+] [default expr+])"),
     ("quote", "引用 (阻止求值) (quote expr)"),
@@ -79,11 +78,7 @@ pub const BUILTIN_FUNCTIONS: &[(&str, &str)] = &[
     ("length", "返回列表长度 (length list)"),
     ("map", "对列表每个元素应用函数 (map fn list)"),
     ("fold", "折叠列表 (fold fn init list)"),
-    ("filter", "过滤列表 (filter pred list)"),
-    ("sort", "排序列表 (sort list)"),
-    ("reverse", "反转列表 (reverse list)"),
     ("in", "成员检查 (in x xs) — returns true if x is element of xs"),
-    ("append", "追加元素到列表 (append list x)"),
     ("zip", "合并两个列表 (zip list1 list2)"),
     ("range", "生成范围列表 (range start end)"),
     ("slice", "切片 (slice list start end)"),
@@ -122,8 +117,7 @@ pub const BUILTIN_FUNCTIONS: &[(&str, &str)] = &[
     ("string->symbol", "字符串转符号 (string->symbol str)"),
     ("convert/bin", "转换为二进制 (convert/bin signal width)"),
     ("bits->sint", "位向量转有符号整数 (bits->sint bits)"),
-    ("concat", "字符串拼接 (concat str...)"),
-    ("strlen", "字符串长度 (strlen str)"),
+    ("string-append", "追加字符串 (string-append str...) — wal-rust 扩展"),
     // 波形操作
     ("load", "加载波形文件 (load filename [tid])"),
     ("unload", "卸载波形 (unload id)"),
@@ -182,24 +176,15 @@ pub const MACROS: &[(&str, &str)] = &[
     ("unless", "当条件为假时执行 (unless cond body...)"),
     ("dowhile", "do-while 循环 (dowhile body... cond)"),
     ("until", "until 循环 (until cond body...)"),
-    ("step-until", "步进直到条件满足 (step-until cond)"),
-    ("step-while", "步进当条件满足 (step-while cond)"),
-    ("always", "总是执行 (always body...)"),
-    ("defunm", "设置命名的宏 (defunm name [args] body)"),
     ("car", "取列表头部 (car xs)"),
     ("cdr", "取列表尾部 (cdr xs)"),
     ("cadr", "取列表第二个元素 (cadr xs)"),
-    ("partition", "分区 (partition pred xs)"),
-    ("inc-define", "增量定义 (inc-define sym)"),
     ("inc", "增量 (inc sym)"),
     ("dec", "减量 (dec sym)"),
     ("sum", "求和 (sum list)"),
     ("timeframe", "时间范围 (timeframe body)"),
     ("rising", "上升沿 (rising expr)"),
     ("falling", "下降沿 (falling expr)"),
-    ("unstable", "不稳定信号 (unstable expr)"),
-    ("stable", "稳定信号 (stable expr)"),
-    ("signed", "有符号信号 (signed signal)"),
     ("count", "计数 (count cond)"),
     ("set!", "设置变量 (set! key value)"),
 ];
@@ -292,7 +277,7 @@ mod tests {
     fn test_key_builtin_functions_present() {
         let items = get_all_completions();
         let labels: HashSet<&str> = items.iter().map(|i| i.label.as_str()).collect();
-        for f in &["first", "second", "last", "rest", "length", "map", "fold", "filter",
+        for f in &["first", "second", "last", "rest", "length", "map", "fold",
                      "in", "zip", "max", "min", "average", "floor", "ceil", "round", "mod",
                      "abs", "load", "unload", "step", "get", "seta", "geta", "mapa",
                      "print", "printf", "exit", "atom?", "symbol?", "string?", "int?", "list?"] {
@@ -352,8 +337,7 @@ mod tests {
         assert!(results.iter().any(|c| c.label == "abs"));
         assert!(results.iter().any(|c| c.label == "atom?"));
         assert!(results.iter().any(|c| c.label == "average"));
-        assert!(results.iter().any(|c| c.label == "append"));
-        assert!(results.iter().any(|c| c.label == "always"));
+        assert!(results.iter().any(|c| c.label == "all-scopes"));
     }
 
     #[test]
@@ -373,7 +357,6 @@ mod tests {
         assert!(results.iter().any(|c| c.label == "step"));
         assert!(results.iter().any(|c| c.label == "sum"));
         assert!(results.iter().any(|c| c.label == "slice"));
-        assert!(results.iter().any(|c| c.label == "sort"));
         assert!(results.iter().any(|c| c.label == "signal?"));
     }
 

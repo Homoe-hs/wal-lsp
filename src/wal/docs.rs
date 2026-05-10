@@ -786,42 +786,6 @@ static FUNCTION_DOCS: Lazy<HashMap<String, FunctionDoc>> = Lazy::new(|| {
 
     // ---- List Operations ----
     docs.insert(
-        "filter".to_string(),
-        FunctionDoc {
-            name: "filter".to_string(),
-            signature: "(filter pred xs)".to_string(),
-            description: "Returns a new list containing only the elements of xs for which pred returns true.".to_string(),
-            example: Some("(filter (fn [x] (> x 2)) '(1 2 3 4)) ;; => (3 4)".to_string()),
-        },
-    );
-    docs.insert(
-        "sort".to_string(),
-        FunctionDoc {
-            name: "sort".to_string(),
-            signature: "(sort xs)".to_string(),
-            description: "Returns a sorted copy of list xs. Uses the natural ordering of elements.".to_string(),
-            example: Some("(sort '(3 1 4 1 5)) ;; => (1 1 3 4 5)".to_string()),
-        },
-    );
-    docs.insert(
-        "reverse".to_string(),
-        FunctionDoc {
-            name: "reverse".to_string(),
-            signature: "(reverse xs)".to_string(),
-            description: "Returns a new list with the elements of xs in reverse order.".to_string(),
-            example: Some("(reverse '(1 2 3)) ;; => (3 2 1)".to_string()),
-        },
-    );
-    docs.insert(
-        "append".to_string(),
-        FunctionDoc {
-            name: "append".to_string(),
-            signature: "(append xs x)".to_string(),
-            description: "Appends element x to the end of list xs. Returns a new list.".to_string(),
-            example: Some("(append '(1 2 3) 4) ;; => (1 2 3 4)".to_string()),
-        },
-    );
-    docs.insert(
         "range".to_string(),
         FunctionDoc {
             name: "range".to_string(),
@@ -1121,15 +1085,6 @@ static FUNCTION_DOCS: Lazy<HashMap<String, FunctionDoc>> = Lazy::new(|| {
             signature: "(cadr xs)".to_string(),
             description: "Returns the second element of list xs. Equivalent to (car (cdr xs)).".to_string(),
             example: Some("(cadr '(1 2 3)) ;; => 2".to_string()),
-        },
-    );
-    docs.insert(
-        "partition".to_string(),
-        FunctionDoc {
-            name: "partition".to_string(),
-            signature: "(partition pred xs)".to_string(),
-            description: "Splits list xs into two lists: elements where pred is true and elements where it is false.".to_string(),
-            example: Some("(partition (fn [x] (> x 2)) '(1 2 3 4)) ;; => ((3 4) (1 2))".to_string()),
         },
     );
     docs.insert(

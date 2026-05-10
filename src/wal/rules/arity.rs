@@ -5,7 +5,7 @@ use crate::wal::rules::{LintContext, LintSeverity, Rule, RuleDescriptor, get_for
 /// 已知符号 arity 表: (name, expected_args)
 const KNOWN_ARITIES: &[(&str, usize)] = &[
     ("define", 2), ("set", 2), ("set!", 2),
-    ("if", 3), ("fn", 2), ("defmacro", 3),
+    ("if", 3),
     ("/", 2), ("**", 2), ("mod", 2),
     ("floor", 1), ("ceil", 1), ("round", 1), ("abs", 1),
     ("quote", 1), ("quasiquote", 1), ("unquote", 1),
@@ -24,13 +24,12 @@ const KNOWN_ARITIES: &[(&str, usize)] = &[
     ("get", 1), ("slice", 3), ("reval", 2),
     ("alias", 2), ("unalias", 1),
     ("find/g", 1),
-    ("in-groups", 2), ("in-scope", 2), ("in-scopes", 2), ("in-group", 2),
-    ("filter", 2), ("sort", 1), ("reverse", 1), ("append", 2),
+    ("in-groups", 2), ("in-group", 2),
     ("range", 2),
     ("signal-width", 1), ("sample-at", 2), ("trim-trace", 2),
     ("string->int", 1), ("int->string", 1),
     ("symbol->string", 1), ("string->symbol", 1),
-    ("bits->sint", 1), ("strlen", 1), ("concat", 2),
+    ("bits->sint", 1),
     ("resolve-group", 1), ("all-scopes", 0),
     ("!", 1), (">", 2), ("<", 2), (">=", 2), ("<=", 2),
 ];

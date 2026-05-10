@@ -23,7 +23,7 @@ const KNOWN_ARITIES: &[(&str, usize)] = &[
     ("unload", 1),
     ("get", 1), ("slice", 3), ("reval", 2),
     ("alias", 2), ("unalias", 1),
-    ("find", 1), ("find/g", 1), ("count", 1),
+    ("find/g", 1),
     ("in-groups", 2), ("in-scope", 2), ("in-scopes", 2), ("in-group", 2),
     ("filter", 2), ("sort", 1), ("reverse", 1), ("append", 2),
     ("range", 2),

@@ -246,6 +246,7 @@ static ALL_COMPLETIONS: Lazy<Vec<CompletionItem>> = Lazy::new(|| {
     items
 });
 
+#[allow(dead_code)]
 pub fn get_all_completions() -> Vec<CompletionItem> {
     ALL_COMPLETIONS.clone()
 }

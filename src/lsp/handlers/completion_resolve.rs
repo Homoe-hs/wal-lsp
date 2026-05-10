@@ -1,4 +1,4 @@
-use crate::wal::completions::get_all_completions;
+use crate::wal::completions::get_all_completions_ref;
 use crate::wal::docs::get_doc;
 use anyhow::Result;
 use lsp_server::{Connection, Request, Response};
@@ -37,11 +37,11 @@ fn resolve_completion_item(item: &CompletionItem) -> CompletionItem {
         };
     }
 
-    for builtin in get_all_completions() {
+    for builtin in get_all_completions_ref() {
         if builtin.label == *label {
-            if let Some(detail) = builtin.detail {
+            if let Some(detail) = &builtin.detail {
                 return CompletionItem {
-                    documentation: Some(lsp_types::Documentation::String(detail)),
+                    documentation: Some(lsp_types::Documentation::String(detail.clone())),
                     ..item.clone()
                 };
             }

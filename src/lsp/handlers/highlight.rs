@@ -37,10 +37,9 @@ fn find_highlights(uri: &lsp_types::Uri, position: lsp_types::Position) -> Vec<D
         return vec![];
     }
 
-    let lines: Vec<&str> = doc.text.lines().collect();
     let mut highlights = Vec::new();
 
-    for (line_idx, line) in lines.iter().enumerate() {
+    for (line_idx, line) in doc.text.lines().enumerate() {
         let mut col = 0;
         while col < line.len() {
             if let Some((end, _)) = find_word_at(line, col, &word) {
@@ -62,38 +61,41 @@ fn find_highlights(uri: &lsp_types::Uri, position: lsp_types::Position) -> Vec<D
 }
 
 fn find_word_at(line: &str, start: usize, word: &str) -> Option<(usize, bool)> {
-    let line_rest = &line[start..];
-    let byte_pos = line_rest.find(word)?;
-    let actual_start = start + byte_pos;
-    let actual_end = actual_start + word.len();
-
-    if actual_end > line.len() {
-        return None;
-    }
-
-    let before_ok = actual_start == 0
-        || !line[..actual_start]
-            .chars()
-            .last()
-            .map_or(false, |c| c.is_alphanumeric() || c == '_' || c == '-');
-
-    let after_ok = actual_end >= line.len()
-        || !line[actual_end..]
-            .chars()
-            .next()
-            .map_or(false, |c| c.is_alphanumeric() || c == '_' || c == '-');
-
-    if before_ok && after_ok {
-        Some((actual_end, true))
-    } else {
-        // Try next position
-        let ch = line[actual_start..].chars().next().unwrap_or(' ');
-        let next_start = actual_start + ch.len_utf8();
-        if next_start < line.len() {
-            find_word_at(line, next_start, word)
-        } else {
-            None
+    let mut current_start = start;
+    loop {
+        if current_start >= line.len() {
+            return None;
         }
+        let line_rest = &line[current_start..];
+        let byte_pos = match line_rest.find(word) {
+            Some(p) => p,
+            None => return None,
+        };
+        let actual_start = current_start + byte_pos;
+        let actual_end = actual_start + word.len();
+
+        if actual_end > line.len() {
+            return None;
+        }
+
+        let before_ok = actual_start == 0
+            || !line[..actual_start]
+                .chars()
+                .last()
+                .map_or(false, |c| crate::workspace::is_wal_word_char(c));
+
+        let after_ok = actual_end >= line.len()
+            || !line[actual_end..]
+                .chars()
+                .next()
+                .map_or(false, |c| crate::workspace::is_wal_word_char(c));
+
+        if before_ok && after_ok {
+            return Some((actual_end, true));
+        }
+
+        let ch = line[actual_start..].chars().next().unwrap_or(' ');
+        current_start = actual_start + ch.len_utf8();
     }
 }
 

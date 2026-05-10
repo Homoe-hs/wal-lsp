@@ -123,8 +123,10 @@ pub fn handle_did_close(connection: &Connection, notif: Notification) -> Result<
 }
 
 pub fn analyze_document(text: &str) -> Vec<Diagnostic> {
-    let mut parser = WAL_PARSER.lock().unwrap_or_else(|e| e.into_inner());
-    let tree = parser.parse_with_errors(text);
+    let tree = {
+        let mut parser = WAL_PARSER.lock().unwrap_or_else(|e| e.into_inner());
+        parser.parse_with_errors(text)
+    };
     analyze_document_from_tree(text, &tree)
 }
 

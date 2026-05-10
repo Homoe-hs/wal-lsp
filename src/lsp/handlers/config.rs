@@ -34,22 +34,35 @@ pub fn handle_did_change_configuration(connection: &Connection, notif: Notificat
         opts.indentation_spaces = spaces;
     }
 
-    let ws = crate::lsp::WORKSPACE.read().unwrap_or_else(|e| e.into_inner());
-    for (uri, doc) in &ws.documents {
-        let tree = match &doc.tree {
-            Some(t) => t,
+    let docs_to_check: Vec<(lsp_types::Uri, String, i32)> = {
+        let ws = crate::lsp::WORKSPACE.read().unwrap_or_else(|e| e.into_inner());
+        ws.documents
+            .iter()
+            .filter_map(|(u, d)| {
+                d.tree.as_ref().map(|_| (u.clone(), d.text.clone(), d.version))
+            })
+            .collect()
+    };
+
+    for (uri, text, version) in &docs_to_check {
+        let tree = {
+            let ws = crate::lsp::WORKSPACE.read().unwrap_or_else(|e| e.into_inner());
+            ws.get_document(uri).and_then(|d| d.tree.clone())
+        };
+        let diagnostics = match tree {
+            Some(t) => crate::lsp::handlers::diagnostics::analyze_document_from_tree(text, &t),
             None => continue,
         };
-        let diagnostics =
-            crate::lsp::handlers::diagnostics::analyze_document_from_tree(&doc.text, tree);
         let params = lsp_types::PublishDiagnosticsParams {
             uri: uri.clone(),
             diagnostics,
-            version: Some(doc.version),
+            version: Some(*version),
         };
         let notification =
             Notification::new("textDocument/publishDiagnostics".to_string(), params);
-        let _ = connection.sender.send(lsp_server::Message::Notification(notification));
+        if connection.sender.send(lsp_server::Message::Notification(notification)).is_err() {
+            break;
+        }
     }
 
     Ok(())

@@ -1,4 +1,3 @@
-use crate::lsp::WORKSPACE;
 use anyhow::Result;
 use lsp_server::{Connection, Request, Response};
 use lsp_types::{
@@ -28,7 +27,6 @@ fn get_code_actions(
     uri: &lsp_types::Uri,
     context: &lsp_types::CodeActionContext,
 ) -> Vec<CodeActionOrCommand> {
-    let _ws = WORKSPACE.read().unwrap_or_else(|e| e.into_inner());
     let mut actions = Vec::new();
 
     for diag in &context.diagnostics {

@@ -45,8 +45,8 @@ fn find_workspace_symbols(query: &str) -> WorkspaceSymbolResponse {
         }
     }
 
-    symbols.sort_by(|a, b| a.name.cmp(&b.name));
-    symbols.dedup_by(|a, b| a.name == b.name && a.location == b.location);
+    symbols.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    symbols.dedup_by(|a, b| a.name.to_lowercase() == b.name.to_lowercase() && a.location == b.location);
 
     WorkspaceSymbolResponse::Nested(symbols)
 }

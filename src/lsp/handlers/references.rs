@@ -24,15 +24,11 @@ fn find_references(params: &ReferenceParams) -> Vec<Location> {
     let line = params.text_document_position.position.line;
     let character = params.text_document_position.position.character;
 
-    let word = {
-        let ws = WORKSPACE.read().unwrap_or_else(|e| e.into_inner());
-        match ws.get_word_at_position(uri, line, character) {
-            Some(w) => w,
-            None => return vec![],
-        }
-    };
-
     let ws = WORKSPACE.read().unwrap_or_else(|e| e.into_inner());
+    let word = match ws.get_word_at_position(uri, line, character) {
+        Some(w) => w,
+        None => return vec![],
+    };
     let locations = ws.symbol_index.find(&word);
     locations
         .into_iter()

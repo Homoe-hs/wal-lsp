@@ -153,6 +153,7 @@ pub const BUILTIN_FUNCTIONS: &[(&str, &str)] = &[
     ("INDEX", "当前时间索引 (特殊变量)"),
     ("MAX-INDEX", "最大时间索引 (特殊变量)"),
     ("CS", "当前作用域 (特殊变量)"),
+    ("CG", "当前组 (特殊变量) — Current Group"),
     ("LOCAL-SIGNALS", "当前作用域信号 (特殊变量)"),
     ("VIRTUAL-SIGNALS", "虚拟信号列表 (特殊变量)"),
     ("TRACE-FILE", "当前波形文件路径 (特殊变量)"),
@@ -439,7 +440,7 @@ mod tests {
     fn test_special_variables_present() {
         let items = get_all_completions();
         let labels: HashSet<&str> = items.iter().map(|i| i.label.as_str()).collect();
-        for v in &["SIGNALS", "INDEX", "MAX-INDEX", "CS", "LOCAL-SIGNALS",
+        for v in &["SIGNALS", "INDEX", "MAX-INDEX", "CS", "CG", "LOCAL-SIGNALS",
                      "VIRTUAL-SIGNALS", "TRACE-FILE", "TRACE-NAME", "TS"] {
             assert!(labels.contains(v), "Missing special variable completion: {}", v);
         }

@@ -38,6 +38,9 @@ const KNOWN_SYMBOLS: &[&str] = &[
     "dowhile", "until",
     "rising", "falling",
     "range",
+    // golden stdlib
+    "groups-excluding", "module", "use",
+    "ALL-INDICES", "trace-index", "set-index", "set-index/all", "symbol-add",
     "SIGNALS", "INDEX", "MAX-INDEX", "CS", "CG",
     "LOCAL-SIGNALS", "LOCAL-SCOPES", "SCOPES", "VIRTUAL-SIGNALS",
     "TRACE-FILE", "TRACE-NAME", "TS",

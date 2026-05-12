@@ -127,7 +127,7 @@
     },
     "_comment": {
       "type": "PATTERN",
-      "value": ";;.*"
+      "value": ";.*"
     },
     "atom": {
       "type": "CHOICE",

@@ -26,7 +26,7 @@ module.exports = grammar({
     unquote_splice: $ => seq(",@", $.sexpr),
 
     whitespace: () => /[\t \r\n]+/,
-    _comment: () => /;;.*/,
+    _comment: () => /;.*/,
 
     atom: $ => choice(
       $.string,

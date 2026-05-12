@@ -186,7 +186,7 @@ pub const MACROS: &[(&str, &str)] = &[
     ("timeframe", "时间范围 (timeframe body)"),
     ("rising", "上升沿 (rising expr)"),
     ("falling", "下降沿 (falling expr)"),
-    ("count", "计数 (count cond)"),
+    ("count", "计数 (count cond) — 多参数返回对应列表"),
     ("set!", "设置变量 (set! key value)"),
 ];
 

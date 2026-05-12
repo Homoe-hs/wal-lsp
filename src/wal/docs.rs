@@ -304,9 +304,9 @@ static FUNCTION_DOCS: Lazy<HashMap<String, FunctionDoc>> = Lazy::new(|| {
         "count".to_string(),
         FunctionDoc {
             name: "count".to_string(),
-            signature: "(count cond)".to_string(),
-            description: "Returns the number of indices at which cond evaluates to true.".to_string(),
-            example: Some("(count (= tb.clk 1))".to_string()),
+            signature: "(count cond) ↦ int  |  (count cond1 cond2 ...) ↦ (int ...)".to_string(),
+            description: "Returns the number of indices where cond is true. Single arg returns an int. Multiple args return a list of counts (wal-rust multi-signal scan, ~17x faster).".to_string(),
+            example: Some("(count (= tb.clk 1))  ;; single condition\n(count (= (get \"evt_rx_req\") 1) (= (get \"evt_send_resp\") 1))  ;; multi-signal scan".to_string()),
         },
     );
     docs.insert(
